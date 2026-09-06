@@ -73,9 +73,10 @@ class LocalDataStore {
   }
 
   // Current Session User
-  getCurrentUser(): UserProfile {
-    const user = this.getItem<UserProfile>('current_user', INITIAL_USERS[0]);
-    return normalizeUserProfile(user);
+  getCurrentUser(): UserProfile | null {
+    if (typeof window === 'undefined') return null;
+    const user = this.getItem<UserProfile | null>('current_user', null);
+    return user ? normalizeUserProfile(user) : null;
   }
 
   setCurrentUser(user: UserProfile | null): void {

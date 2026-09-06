@@ -18,7 +18,11 @@ export default function DashboardLayout({
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const user = localStore.getCurrentUser() || INITIAL_USERS[0];
+    const user = localStore.getCurrentUser();
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
     setCurrentUser(user);
     setIsLoaded(true);
   }, [router]);
@@ -38,9 +42,9 @@ export default function DashboardLayout({
 
   if (!isLoaded || !currentUser) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-marathi">
         <div className="w-8 h-8 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mr-3" />
-        <span>लोड होत आहे...</span>
+        <span>लॉगिन तपासत आहे... कृपया लॉगिन करा.</span>
       </div>
     );
   }
