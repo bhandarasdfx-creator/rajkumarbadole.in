@@ -12,7 +12,8 @@ import {
   Globe,
   Sparkles,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 import { isSupabaseConfigured, localStore } from '@/lib/supabase/client';
@@ -225,6 +226,25 @@ export default function Header({ currentUser, title, subtitle }: HeaderProps) {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-slate-950" />
           )}
         </Link>
+
+        {/* Current User Session & Logout in Header */}
+        <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+          <div className="hidden sm:flex flex-col text-right">
+            <span className="text-xs font-bold text-slate-200 truncate max-w-[130px]">{currentUser.full_name}</span>
+            <span className="text-[10px] text-amber-400 font-medium">@{currentUser.username || currentUser.role}</span>
+          </div>
+          <button
+            onClick={() => {
+              localStore.setCurrentUser(null);
+              window.location.href = '/login';
+            }}
+            title="लॉगआउट करा"
+            className="p-1.5 px-2.5 rounded-xl bg-slate-900/80 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 text-slate-400 hover:text-rose-400 transition flex items-center gap-1.5 text-xs font-medium"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden md:inline text-[11px]">लॉगआउट</span>
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -8,8 +8,8 @@ import { INITIAL_USERS } from '@/lib/supabase/mock-db';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [usernameOrEmail, setUsernameOrEmail] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +169,7 @@ export default function LoginPage() {
                   required
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
-                  placeholder="उदा. admin किंवा name@example.com"
+                  placeholder="उदा. admin, editor किंवा तुमचा ईमेल"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition"
                 />
               </div>
