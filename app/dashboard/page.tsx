@@ -18,10 +18,13 @@ import {
   CheckCircle,
   Share2,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  RefreshCw,
+  Globe
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { UserProfile, NewsPost, DevelopmentWork, CitizenVoiceMessage, ActivityLog } from '@/lib/types';
+import { triggerWordPressSync } from '@/lib/wordpress-sync';
 
 export default function DashboardOverviewPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -29,6 +32,8 @@ export default function DashboardOverviewPage() {
   const [worksList, setWorksList] = useState<DevelopmentWork[]>([]);
   const [voiceList, setVoiceList] = useState<CitizenVoiceMessage[]>([]);
   const [logsList, setLogsList] = useState<ActivityLog[]>([]);
+  const [isSyncingWp, setIsSyncingWp] = useState(false);
+  const [wpSyncResult, setWpSyncResult] = useState<{ success: boolean; message: string; timestamp?: string } | null>(null);
 
   useEffect(() => {
     setUser(localStore.getCurrentUser());
@@ -37,6 +42,33 @@ export default function DashboardOverviewPage() {
     setVoiceList(localStore.getVoiceMessages());
     setLogsList(localStore.getLogs());
   }, []);
+
+  const handleTriggerFullSync = async () => {
+    setIsSyncingWp(true);
+    try {
+      const payload = {
+        latest_news: localStore.getNews(),
+        development_works: localStore.getWorks(),
+        initiatives: localStore.getInitiatives(),
+        events: localStore.getEvents(),
+        videos: localStore.getVideos(),
+        gallery: localStore.getGallery()
+      };
+      const res = await triggerWordPressSync(payload);
+      setWpSyncResult({
+        success: res.success,
+        message: res.message,
+        timestamp: new Date().toLocaleTimeString('mr-IN', { hour: '2-digit', minute: '2-digit' })
+      });
+    } catch (e: any) {
+      setWpSyncResult({
+        success: false,
+        message: e.message
+      });
+    } finally {
+      setIsSyncingWp(false);
+    }
+  };
 
   const stats = [
     {
@@ -117,6 +149,72 @@ export default function DashboardOverviewPage() {
             className="w-full h-full object-cover object-top"
           />
         </div>
+      </div>
+
+      {/* WordPress Live Direct Sync Action Banner */}
+      <div className="p-5 md:p-6 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>थेट वेबसाइट सिंक्रोनायझेशन</span>
+              </span>
+              <span className="text-xs text-slate-400 font-mono">rajkumarbadole.in</span>
+            </div>
+            <h3 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
+              <span>https://rajkumarbadole-newsroom.vercel.app/ वरून थेट WordPress अपडेट करा</span>
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              येथून तयार केलेल्या सर्व ताज्या बातम्या, विकासकामे, उपक्रम आणि व्हिडिओ थेट मुख्य वेबसाइटवर (rajkumarbadole.in) एका क्लिकवर सिंक होतात. वेगळ्या वर्डप्रेस ॲडमिनमध्ये जाण्याची आवश्यकता नाही.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={handleTriggerFullSync}
+              disabled={isSyncingWp}
+              className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs transition shadow-xl ${
+                isSyncingWp
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-wait'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 hover:scale-[1.02]'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncingWp ? 'animate-spin text-amber-400' : ''}`} />
+              <span>{isSyncingWp ? 'WordPress वर सिंक होत आहे...' : '⚡ संपूर्ण डेटा WordPress वर सिंक करा'}</span>
+            </button>
+
+            <a
+              href="https://rajkumarbadole.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+            >
+              <span>rajkumarbadole.in उघडा</span>
+              <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+            </a>
+          </div>
+        </div>
+
+        {wpSyncResult && (
+          <div className={`mt-4 p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2.5 border animate-fade-in ${
+            wpSyncResult.success
+              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+          }`}>
+            {wpSyncResult.success ? (
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <Globe className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{wpSyncResult.message}</span>
+            {wpSyncResult.timestamp && (
+              <span className="text-[11px] text-slate-400 ml-auto font-normal">
+                (शेवटचा सिंक: {wpSyncResult.timestamp})
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Metrics Stat Grid */}

@@ -12,20 +12,26 @@ import {
   Code,
   Copy,
   Layers,
-  Download
+  Download,
+  RefreshCw,
+  CheckCircle2,
+  Zap
 } from 'lucide-react';
-import { getWordPressConfig, saveWordPressConfig, testWordPressConnection, WordPressConfig } from '@/lib/wordpress-sync';
+import { getWordPressConfig, saveWordPressConfig, testWordPressConnection, triggerWordPressSync, WordPressConfig } from '@/lib/wordpress-sync';
+import { localStore } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<WordPressConfig>({
     siteUrl: 'https://rajkumarbadole.in',
     username: 'admin',
     appPassword: '',
-    autoSync: false
+    autoSync: true
   });
   const [toast, setToast] = useState('');
   const [copied, setCopied] = useState(false);
   const [testResult, setTestResult] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncDetails, setSyncDetails] = useState<{ message: string; success: boolean; imported?: any } | null>(null);
 
   useEffect(() => {
     setConfig(getWordPressConfig());
@@ -36,6 +42,38 @@ export default function SettingsPage() {
     saveWordPressConfig(config);
     setToast('सेटिंग्ज यशस्वीरीत्या सेव्ह झाल्या!');
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleFullSync = async () => {
+    setIsSyncing(true);
+    setSyncDetails(null);
+    try {
+      const payload = {
+        latest_news: localStore.getNews(),
+        development_works: localStore.getWorks(),
+        initiatives: localStore.getInitiatives(),
+        events: localStore.getEvents(),
+        videos: localStore.getVideos(),
+        gallery: localStore.getGallery()
+      };
+      const res = await triggerWordPressSync(payload);
+      setSyncDetails({
+        success: res.success,
+        message: res.message,
+        imported: res.imported
+      });
+      if (res.success) {
+        setToast('✓ rajkumarbadole.in सह डेटा सिंक झाला!');
+        setTimeout(() => setToast(''), 4000);
+      }
+    } catch (e: any) {
+      setSyncDetails({
+        success: false,
+        message: `त्रुटी: ${e.message}`
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const copyApiUrl = (endpoint: string) => {
@@ -60,8 +98,104 @@ export default function SettingsPage() {
           <span>साइट व सिंक सेटिंग्स (Integration Settings)</span>
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          राजकुमार बडोले यांच्या वेबसाइटशी (rajkumarbadole.in) डेटा जोडणी आणि Supabase संरचना.
+          राजकुमार बडोले यांच्या अधिकृत वेबसाइटशी (rajkumarbadole.in) थेट डेटा जोडणी आणि सिंक्रोनायझेशन.
         </p>
+      </div>
+
+      {/* Primary Direct WordPress Synchronization Box */}
+      <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 space-y-5 shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-white font-bold text-base">
+            <Zap className="w-5 h-5 text-emerald-400" />
+            <span>थेट वेबसाइट सिंक्रोनायझेशन (Live Vercel ➔ rajkumarbadole.in)</span>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center gap-1.5 w-fit">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>थेट सिंक सक्षम (Active)</span>
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed">
+          हे सिंक्रोनायझेशन थेट <strong>https://rajkumarbadole-newsroom.vercel.app/</strong> येथूनच चालते. आपल्याला WordPress ॲडमिन पॅनेल उघडण्याची कोणतीही आवश्यकता नाही. आपण खालील बटण दाबून किंवा हेडरमधील <strong>&quot;⚡ WordPress सिंक&quot;</strong> बटण दाबून संपूर्ण डेटा त्वरित पाठवू शकता.
+        </p>
+
+        <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-slate-400">WordPress WebHook Endpoint:</span>
+            <span className="font-mono text-emerald-400 select-all">https://rajkumarbadole.in/wp-json/rb-newsroom/v1/sync</span>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-900 pt-2">
+            <span className="text-slate-400">Newsroom Public JSON Feed:</span>
+            <span className="font-mono text-amber-400 select-all">https://rajkumarbadole-newsroom.vercel.app/api/feed</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={handleFullSync}
+            disabled={isSyncing}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-xs transition shadow-xl ${
+              isSyncing
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-wait'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 hover:scale-[1.02]'
+            }`}
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-amber-300' : ''}`} />
+            <span>{isSyncing ? 'डेटा WordPress वर सिंक होत आहे...' : '⚡ आत्ताच संपूर्ण डेटा WordPress वर सिंक करा'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setTestResult('वेबहूक कनेक्शन तपासत आहे...');
+              const res = await testWordPressConnection();
+              setTestResult(res.message);
+            }}
+            className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-400" />
+            <span>WordPress कनेक्शन तपासा</span>
+          </button>
+
+          <a
+            href="https://rajkumarbadole.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700"
+          >
+            <span>वेबसाइट उघडा</span>
+            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+          </a>
+        </div>
+
+        {syncDetails && (
+          <div className={`p-4 rounded-2xl text-xs font-semibold border space-y-2 animate-fade-in ${
+            syncDetails.success
+              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+              : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{syncDetails.message}</span>
+            </div>
+            {syncDetails.imported && (
+              <div className="text-[11px] text-slate-300 font-normal pl-6">
+                सिंक केलेले आयटम्स: {Object.entries(syncDetails.imported).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+              </div>
+            )}
+          </div>
+        )}
+
+        {testResult && (
+          <div className={`p-3 rounded-xl text-xs font-medium ${
+            testResult.startsWith('✓')
+              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+              : 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
+          }`}>
+            {testResult}
+          </div>
+        )}
       </div>
 
       {/* Supabase Cloud Database Info */}
@@ -96,96 +230,6 @@ export default function SettingsPage() {
         </a>
       </div>
 
-      {/* WordPress Direct Sync Form */}
-      <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-5 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 text-white font-bold text-base">
-            <Globe className="w-5 h-5 text-amber-400" />
-            <span>WordPress थेट सिंक (rajkumarbadole.in REST API)</span>
-          </div>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">
-            WordPress API
-          </span>
-        </div>
-
-        <p className="text-xs text-slate-400 leading-relaxed">
-          येथे WordPress लॉगिन तपशील भरल्यास, प्रत्येक बातमी किंवा विकासकाम एका क्लिकवर थेट rajkumarbadole.in वर प्रकाशित होईल.
-        </p>
-
-        <form onSubmit={handleSave} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-300 font-semibold mb-1">WordPress वेबसाइट URL</label>
-            <input
-              type="url"
-              required
-              value={config.siteUrl}
-              onChange={(e) => setConfig({ ...config, siteUrl: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">WordPress Admin युझरनेम</label>
-              <input
-                type="text"
-                value={config.username}
-                onChange={(e) => setConfig({ ...config, username: e.target.value })}
-                placeholder="admin"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Application Password (ॲप पासवर्ड)</label>
-              <input
-                type="password"
-                value={config.appPassword || ''}
-                onChange={(e) => setConfig({ ...config, appPassword: e.target.value })}
-                placeholder="xxxx xxxx xxxx xxxx"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
-              />
-              <span className="text-[11px] text-slate-500 mt-1 block">
-                WP Admin &gt; Users &gt; Profile &gt; Application Passwords मधून जनरेट करा.
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              type="submit"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20"
-            >
-              <Save className="w-4 h-4" />
-              <span>WordPress सेटिंग्स सेव्ह करा</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                saveWordPressConfig(config);
-                setTestResult('कनेक्शन तपासत आहे...');
-                const res = await testWordPressConnection();
-                setTestResult(res.message);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700"
-            >
-              <span>WordPress कनेक्शन तपासा</span>
-            </button>
-          </div>
-
-          {testResult && (
-            <div className={`p-3 rounded-xl text-xs font-medium ${
-              testResult.startsWith('✓')
-                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-                : 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
-            }`}>
-              {testResult}
-            </div>
-          )}
-        </form>
-      </div>
-
       {/* REST API Endpoints for rajkumarbadole.in */}
       <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
         <div className="flex items-center gap-2.5 text-white font-bold text-base">
@@ -202,6 +246,7 @@ export default function SettingsPage() {
             { label: 'मास्टर डेटा फीड (सर्वसमावेशक - बातम्या, कामे, उपक्रम, कार्यक्रम, व्हिडिओ)', path: '/api/feed' },
             { label: 'ताज्या बातम्या API', path: '/api/news' },
             { label: 'माझे काम (विकासकामे) API', path: '/api/works' },
+            { label: 'WordPress थेट सिंक Webhook Proxy', path: '/api/sync-to-wordpress' },
           ].map((item, idx) => (
             <div
               key={idx}
@@ -261,19 +306,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-3 pt-2">
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-2">
-            <div className="font-bold text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px]">१</span>
-              <span>वर्डप्रेसमध्ये Application Password कसा तयार करावा:</span>
-            </div>
-            <p className="text-slate-400 pl-7 leading-relaxed">
-              WordPress Admin उघडा (<a href="https://rajkumarbadole.in/wp-admin" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline">rajkumarbadole.in/wp-admin</a>) ➔ <strong>Users</strong> ➔ <strong>Profile</strong> मध्ये जा ➔ खाली स्क्रोल करून <strong>Application Passwords</strong> मध्ये <code>Newsroom</code> नाव टाका व &quot;Add New Application Password&quot; दाबा ➔ आलेला २४ अक्षरी कोड वरील <strong>Application Password</strong> फील्डमध्ये पेस्ट करा.
-            </p>
-          </div>
-
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-3">
             <div className="font-bold text-slate-200 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px]">२</span>
+              <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px]">१</span>
               <span>पेजवर डेटा दाखवण्यासाठी शॉर्टकोड्स (Shortcodes):</span>
             </div>
 

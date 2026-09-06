@@ -16,11 +16,12 @@ import {
   Globe,
   Upload,
   Image as ImageIcon,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { NewsPost, UserProfile } from '@/lib/types';
-import { pushNewsToWordPress } from '@/lib/wordpress-sync';
+import { pushNewsToWordPress, triggerWordPressSync } from '@/lib/wordpress-sync';
 
 export default function NewsPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -141,6 +142,25 @@ export default function NewsPage() {
     }, 6000);
   };
 
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+
+  const handleSyncAllNews = async () => {
+    setIsBulkSyncing(true);
+    try {
+      const res = await triggerWordPressSync({ latest_news: localStore.getNews() });
+      if (res.success) {
+        setToast('✓ सर्व बातम्या rajkumarbadole.in सह सिंक झाल्या!');
+      } else {
+        setToast(`त्रुटी: ${res.message}`);
+      }
+    } catch (e: any) {
+      setToast(`त्रुटी: ${e.message}`);
+    } finally {
+      setIsBulkSyncing(false);
+      setTimeout(() => setToast(''), 4000);
+    }
+  };
+
   const filteredPosts = posts.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
                           p.excerpt.toLowerCase().includes(search.toLowerCase());
@@ -170,13 +190,28 @@ export default function NewsPage() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20 shrink-0"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>नवीन बातमी लिहा</span>
-        </button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleSyncAllNews}
+            disabled={isBulkSyncing}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-bold text-xs transition shadow-md ${
+              isBulkSyncing
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-wait'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+            }`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isBulkSyncing ? 'animate-spin text-amber-300' : ''}`} />
+            <span>{isBulkSyncing ? 'सिंक होत आहे...' : '⚡ सर्व WP सिंक'}</span>
+          </button>
+
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>नवीन बातमी लिहा</span>
+          </button>
+        </div>
       </div>
 
       {/* Category Tabs & Search */}

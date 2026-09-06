@@ -58,7 +58,16 @@ class RB_Newsroom_Sync {
     }
 
     public function handle_webhook_sync($request) {
-        $result = $this->sync_all_content();
+        $params = $request->get_json_params();
+        $passed_data = null;
+        if (!empty($params)) {
+            if (isset($params['data'])) {
+                $passed_data = $params['data'];
+            } elseif (isset($params['latest_news']) || isset($params['development_works'])) {
+                $passed_data = $params;
+            }
+        }
+        $result = $this->sync_all_content($passed_data);
         return rest_ensure_response([
             'success' => true,
             'message' => 'WebHook sync completed.',
@@ -77,21 +86,25 @@ class RB_Newsroom_Sync {
         exit;
     }
 
-    public function sync_all_content() {
-        $feed_url = trailingslashit($this->api_base_url) . 'feed';
-        $response = wp_remote_get($feed_url, ['timeout' => 20]);
+    public function sync_all_content($passed_data = null) {
+        if ($passed_data && (isset($passed_data['latest_news']) || isset($passed_data['development_works']))) {
+            $data = $passed_data;
+        } else {
+            $feed_url = trailingslashit($this->api_base_url) . 'feed';
+            $response = wp_remote_get($feed_url, ['timeout' => 20]);
 
-        if (is_wp_error($response)) {
-            return ['error' => $response->get_error_message()];
+            if (is_wp_error($response)) {
+                return ['error' => $response->get_error_message()];
+            }
+
+            $body = wp_remote_retrieve_body($response);
+            $json = json_decode($body, true);
+            if (!$json || !isset($json['data'])) {
+                return ['error' => 'Invalid JSON from Newsroom API'];
+            }
+
+            $data = $json['data'];
         }
-
-        $body = wp_remote_retrieve_body($response);
-        $json = json_decode($body, true);
-        if (!$json || !isset($json['data'])) {
-            return ['error' => 'Invalid JSON from Newsroom API'];
-        }
-
-        $data = $json['data'];
         $counts = [
             'news' => 0,
             'works' => 0,
