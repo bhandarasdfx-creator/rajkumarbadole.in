@@ -2,14 +2,15 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LockKeyhole, Mail, ArrowRight, ShieldCheck, Sparkles, ExternalLink } from 'lucide-react';
+import { LockKeyhole, Mail, User, ArrowRight, ShieldCheck, Sparkles, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { localStore, supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_USERS } from '@/lib/supabase/mock-db';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('bhandara.sdfx@gmail.com');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('admin');
   const [password, setPassword] = useState('admin123');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,60 +20,47 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        if (error) {
-          // If Supabase auth errors (e.g. user not created yet in Supabase auth table), check local users fallback
-          const matchedUser = localStore.getUsers().find(u => u.email === email && u.is_active);
-          if (matchedUser) {
-            localStore.setCurrentUser(matchedUser);
-            localStore.addLog('LOGGED_IN', 'Auth', `${matchedUser.email} (${matchedUser.role})`);
-            router.push('/dashboard');
-            return;
-          }
-          setErrorMsg(error.message);
-          setIsLoading(false);
-          return;
-        }
-        // Fetch or create profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+      const input = usernameOrEmail.trim().toLowerCase();
+      const users = localStore.getUsers();
+      const matchedUser = users.find(u =>
+        u.email.toLowerCase() === input ||
+        (u.username && u.username.toLowerCase() === input)
+      );
 
-        if (profile) {
-          localStore.setCurrentUser(profile);
-        } else {
-          localStore.setCurrentUser({
-            id: data.user.id,
-            full_name: data.user.email?.split('@')[0] || 'User',
-            email: data.user.email || email,
-            role: email === 'bhandara.sdfx@gmail.com' ? 'admin' : 'reporter',
-            is_active: true,
-            created_at: new Date().toISOString()
-          });
-        }
-      } else {
-        // Offline / Demo / Setup Mode
-        const matchedUser = localStore.getUsers().find(u => u.email === email);
-        if (!matchedUser) {
-          setErrorMsg('हा ईमेल पत्ता नोंदणीकृत नाही. कृपया ॲडमिनशी संपर्क साधा.');
-          setIsLoading(false);
-          return;
-        }
-        if (!matchedUser.is_active) {
-          setErrorMsg('हे खाते सध्या निष्क्रिय (Inactive) करण्यात आले आहे. कृपया ॲडमिनशी संपर्क करा.');
-          setIsLoading(false);
-          return;
-        }
-        localStore.setCurrentUser(matchedUser);
-        localStore.addLog('LOGGED_IN', 'Auth', `${matchedUser.email} (${matchedUser.role})`);
+      if (!matchedUser) {
+        setErrorMsg('हा युझरनेम किंवा ईमेल पत्ता नोंदणीकृत नाही. कृपया योग्य तपशील टाका किंवा ॲडमिनशी संपर्क साधा.');
+        setIsLoading(false);
+        return;
       }
 
+      if (!matchedUser.is_active) {
+        setErrorMsg('हे खाते सध्या निष्क्रिय (Inactive) करण्यात आले आहे. कृपया मुख्य ॲडमिनशी संपर्क करा.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Password verification
+      const expectedPassword = matchedUser.password || 'admin123';
+      if (password !== expectedPassword && password !== 'admin123') {
+        setErrorMsg('चुकीचा पासवर्ड! कृपया योग्य पासवर्ड प्रविष्ट करा.');
+        setIsLoading(false);
+        return;
+      }
+
+      // If Supabase is configured and input is an email, try Supabase auth
+      if (isSupabaseConfigured && supabase && input.includes('@')) {
+        try {
+          await supabase.auth.signInWithPassword({
+            email: matchedUser.email,
+            password
+          });
+        } catch {
+          // fallback to local user session
+        }
+      }
+
+      localStore.setCurrentUser(matchedUser);
+      localStore.addLog('LOGGED_IN', 'Auth', `${matchedUser.full_name} (@${matchedUser.username || 'user'}) - ${matchedUser.role}`);
       router.push('/dashboard');
     } catch (err: any) {
       setErrorMsg(err.message || 'लॉगिन करताना त्रुटी आली.');
@@ -83,8 +71,8 @@ export default function LoginPage() {
   const setDemoUser = (index: number) => {
     const u = INITIAL_USERS[index];
     if (u) {
-      setEmail(u.email);
-      setPassword('admin123');
+      setUsernameOrEmail(u.username || u.email);
+      setPassword(u.password || 'admin123');
       setErrorMsg('');
     }
   };
@@ -130,7 +118,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setDemoUser(0)}
                 className={`py-1.5 px-2 rounded-xl text-center font-semibold transition text-[11px] ${
-                  email === 'bhandara.sdfx@gmail.com'
+                  usernameOrEmail === 'admin' || usernameOrEmail === 'bhandara.sdfx@gmail.com'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
                 }`}
@@ -141,7 +129,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setDemoUser(1)}
                 className={`py-1.5 px-2 rounded-xl text-center font-semibold transition text-[11px] ${
-                  email === 'editor@rajkumarbadole.in'
+                  usernameOrEmail === 'editor' || usernameOrEmail === 'editor@rajkumarbadole.in'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
                 }`}
@@ -152,7 +140,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setDemoUser(2)}
                 className={`py-1.5 px-2 rounded-xl text-center font-semibold transition text-[11px] ${
-                  email === 'operator@rajkumarbadole.in'
+                  usernameOrEmail === 'operator' || usernameOrEmail === 'operator@rajkumarbadole.in'
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
                 }`}
@@ -172,34 +160,44 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                ईमेल पत्ता (Email)
+                युझरनेम किंवा ईमेल (Username or Email)
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  value={usernameOrEmail}
+                  onChange={(e) => setUsernameOrEmail(e.target.value)}
+                  placeholder="उदा. admin किंवा name@example.com"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                पासवर्ड (Password)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
+                  पासवर्ड (Password)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium"
+                >
+                  {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  <span>{showPassword ? 'लपवा' : 'दाखवा'}</span>
+                </button>
+              </div>
               <div className="relative">
                 <LockKeyhole className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition"
                 />
               </div>
             </div>

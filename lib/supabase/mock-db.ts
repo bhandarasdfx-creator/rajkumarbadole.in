@@ -14,7 +14,9 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'user-admin-1',
     full_name: 'मुख्य ॲडमिन (Bhandara SDFX)',
+    username: 'admin',
     email: 'bhandara.sdfx@gmail.com',
+    password: 'admin123',
     role: 'admin',
     publish_permission: 'direct_publish',
     allowed_sections: ['news', 'works', 'initiatives', 'events', 'videos', 'gallery', 'voice'],
@@ -27,7 +29,9 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'user-editor-1',
     full_name: 'प्रमोद मेश्राम (संपादक / पीआरओ)',
+    username: 'editor',
     email: 'editor@rajkumarbadole.in',
+    password: 'editor123',
     role: 'editor',
     publish_permission: 'direct_publish',
     allowed_sections: ['news', 'works', 'initiatives', 'events', 'videos', 'gallery', 'voice'],
@@ -39,7 +43,9 @@ export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'user-reporter-1',
     full_name: 'अतुल वासनिक (मतदारसंघ डेटा ऑपरेटर)',
+    username: 'operator',
     email: 'operator@rajkumarbadole.in',
+    password: 'operator123',
     role: 'reporter',
     publish_permission: 'needs_approval',
     allowed_sections: ['news', 'works', 'events', 'gallery'],

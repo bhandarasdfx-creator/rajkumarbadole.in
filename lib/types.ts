@@ -5,7 +5,9 @@ export type AppSection = 'news' | 'works' | 'initiatives' | 'events' | 'videos' 
 export interface UserProfile {
   id: string;
   full_name: string;
+  username?: string; // युझरनेम (Username - लॉगिनसाठी)
   email: string;
+  password?: string; // पासवर्ड (Password - लॉगिनसाठी)
   role: UserRole;
   publish_permission?: PublishPermission; // 'direct_publish' किंवा 'needs_approval'
   allowed_sections?: AppSection[]; // ज्या विभागांचा ॲक्सेस आहे ते सेक्शन्स

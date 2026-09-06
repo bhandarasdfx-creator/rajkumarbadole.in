@@ -40,8 +40,12 @@ function normalizeUserProfile(u: UserProfile): UserProfile {
   const sections = (u.allowed_sections && u.allowed_sections.length > 0)
     ? u.allowed_sections
     : (u.role === 'reporter' ? DEFAULT_REPORTER_SECTIONS : ALL_APP_SECTIONS);
+  const defaultUsername = u.username || (u.email ? u.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') : 'user');
+  const defaultPassword = u.password || 'admin123';
   return {
     ...u,
+    username: defaultUsername,
+    password: defaultPassword,
     allowed_sections: sections,
     publish_permission: u.publish_permission || (u.role === 'reporter' ? 'needs_approval' : 'direct_publish')
   };
