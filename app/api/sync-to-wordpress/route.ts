@@ -35,10 +35,32 @@ export async function POST(req: Request) {
     }
 
     const result = await response.json();
+    
+    // Check if WordPress returned success
+    if (result.success === false) {
+      return NextResponse.json({
+        success: false,
+        message: result.message || 'WordPress वर डेटा सेव्ह करता आला नाही.',
+        error: result
+      }, { status: 400 });
+    }
+
+    const imported = result.imported || {};
+    const total = result.total_imported ?? Object.values(imported).reduce((acc: number, val: any) => acc + (typeof val === 'number' ? val : 0), 0);
+
+    let friendlyMessage = result.message;
+    if (!friendlyMessage) {
+      friendlyMessage = total > 0
+        ? `✓ ${total} नोंदी rajkumarbadole.in वर थेट सिंक झाल्या!`
+        : 'सिंक पूर्ण झाले.';
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'rajkumarbadole.in सह सिंक यशस्वी झाले!',
-      imported: result.imported || {},
+      message: friendlyMessage,
+      imported,
+      total_imported: total,
+      wp_id: result.wp_id,
       wpResponse: result,
       synced_at: new Date().toISOString()
     });
