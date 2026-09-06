@@ -45,6 +45,7 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
     icon: any;
     count?: number;
     badgeColor?: string;
+    badgeText?: string;
     section?: AppSection;
   }[] = [
     { href: '/dashboard', label: 'मुख्य डॅशबोर्ड', icon: LayoutDashboard },
@@ -54,7 +55,14 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
     { href: '/dashboard/events', label: 'कार्यक्रम व दौरे', icon: Calendar, count: localStore.getEvents().length, section: 'events' },
     { href: '/dashboard/videos', label: 'व्हिडिओ व्यवस्थापन', icon: Video, count: localStore.getVideos().length, section: 'videos' },
     { href: '/dashboard/gallery', label: 'फोटो गॅलरी', icon: ImageIcon, count: localStore.getGallery().length, section: 'gallery' },
-    { href: '/dashboard/about', label: 'परिचय व माझा प्रवास', icon: UserCheck, section: 'about' },
+    {
+      href: '/dashboard/about',
+      label: 'परिचय व माझा प्रवास',
+      icon: UserCheck,
+      section: 'about',
+      badgeText: 'नवीन',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+    },
     { href: '/dashboard/voice', label: 'जनतेचा आवाज', icon: MessageSquare, count: localStore.getVoiceMessages().filter(v => v.status === 'new').length, badgeColor: 'bg-amber-500', section: 'voice' },
   ];
 
@@ -140,6 +148,11 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
                     {item.count !== undefined && item.count > 0 && (
                       <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
                         {item.count}
+                      </span>
+                    )}
+                    {item.badgeText && (
+                      <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${item.badgeColor || 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}`}>
+                        {item.badgeText}
                       </span>
                     )}
                   </Link>
