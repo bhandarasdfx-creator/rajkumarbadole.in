@@ -11,7 +11,8 @@ import {
   ExternalLink,
   Code,
   Copy,
-  Layers
+  Layers,
+  Download
 } from 'lucide-react';
 import { getWordPressConfig, saveWordPressConfig, testWordPressConnection, WordPressConfig } from '@/lib/wordpress-sync';
 
@@ -247,6 +248,17 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-400 leading-relaxed">
           आपल्या वर्डप्रेस साइटवर (rajkumarbadole.in) थेट डेटा दाखवण्यासाठी तयार केलेले <code>rajkumarbadole-newsroom-sync.php</code> हे प्लगइन वापरू शकता.
         </p>
+
+        <div>
+          <a
+            href="/rajkumarbadole-newsroom-sync.zip"
+            download="rajkumarbadole-newsroom-sync.zip"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-600/20"
+          >
+            <Download className="w-4 h-4" />
+            <span>WordPress प्लगइन ZIP डाऊनलोड करा (.zip)</span>
+          </a>
+        </div>
 
         <div className="space-y-3 pt-2">
           <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-2">
