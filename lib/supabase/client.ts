@@ -169,6 +169,14 @@ class LocalDataStore {
     this.addLog(idx >= 0 ? 'UPDATED_INITIATIVE' : 'CREATED_INITIATIVE', 'Initiative', init.title);
   }
 
+  deleteInitiative(id: string): void {
+    let list = this.getInitiatives();
+    const item = list.find(x => x.id === id);
+    list = list.filter(x => x.id !== id);
+    this.setItem('initiatives', list);
+    if (item) this.addLog('DELETED_INITIATIVE', 'Initiative', item.title);
+  }
+
   // Events
   getEvents(): EventItem[] {
     return this.getItem<EventItem[]>('events', INITIAL_EVENTS);
@@ -184,6 +192,14 @@ class LocalDataStore {
     }
     this.setItem('events', list);
     this.addLog(idx >= 0 ? 'UPDATED_EVENT' : 'CREATED_EVENT', 'Event', evt.title);
+  }
+
+  deleteEvent(id: string): void {
+    let list = this.getEvents();
+    const item = list.find(x => x.id === id);
+    list = list.filter(x => x.id !== id);
+    this.setItem('events', list);
+    if (item) this.addLog('DELETED_EVENT', 'Event', item.title);
   }
 
   // Videos
@@ -203,6 +219,14 @@ class LocalDataStore {
     this.addLog(idx >= 0 ? 'UPDATED_VIDEO' : 'CREATED_VIDEO', 'Video', video.title);
   }
 
+  deleteVideo(id: string): void {
+    let list = this.getVideos();
+    const item = list.find(x => x.id === id);
+    list = list.filter(x => x.id !== id);
+    this.setItem('videos', list);
+    if (item) this.addLog('DELETED_VIDEO', 'Video', item.title);
+  }
+
   // Gallery
   getGallery(): GalleryItem[] {
     return this.getItem<GalleryItem[]>('gallery', INITIAL_GALLERY);
@@ -218,6 +242,14 @@ class LocalDataStore {
     }
     this.setItem('gallery', list);
     this.addLog('SAVED_GALLERY_ITEM', 'Gallery', item.title);
+  }
+
+  deleteGallery(id: string): void {
+    let list = this.getGallery();
+    const item = list.find(x => x.id === id);
+    list = list.filter(x => x.id !== id);
+    this.setItem('gallery', list);
+    if (item) this.addLog('DELETED_GALLERY_ITEM', 'Gallery', item.title);
   }
 
   // Citizen Voice

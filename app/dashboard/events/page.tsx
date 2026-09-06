@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, PlusCircle, MapPin, Clock, Users, Trash2, Edit, Check } from 'lucide-react';
+import { Calendar, PlusCircle, MapPin, Clock, Users, Trash2, Edit, Check, Globe } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { EventItem, UserProfile } from '@/lib/types';
+import { pushEventToWordPress } from '@/lib/wordpress-sync';
 
 export default function EventsPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
   const [title, setTitle] = useState('');
@@ -73,8 +75,24 @@ export default function EventsPage() {
     localStore.saveEvent(newEvt);
     loadData();
     setIsModalOpen(false);
-    setToast(editingEvent ? 'कार्यक्रम अद्ययावत केला!' : 'नवीन कार्यक्रम यशस्वीरीत्या जोडला!');
+    setToast(editingEvent ? 'कार्यक्रम अद्ययावत केला!' : 'नवीन कार्यक्रम जोडण्यात आला!');
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleSyncWordPress = async (evt: EventItem) => {
+    setSyncStatus(prev => ({ ...prev, [evt.id]: 'सिंक करत आहे...' }));
+    const result = await pushEventToWordPress(evt);
+    setSyncStatus(prev => ({
+      ...prev,
+      [evt.id]: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+    }));
+    setTimeout(() => {
+      setSyncStatus(prev => {
+        const copy = { ...prev };
+        delete copy[evt.id];
+        return copy;
+      });
+    }, 6000);
   };
 
   return (
@@ -148,13 +166,30 @@ export default function EventsPage() {
               <span className="text-[11px] text-emerald-400 font-semibold">
                 ● आगामी कार्यक्रम
               </span>
-              <button
-                onClick={() => openEditModal(evt)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleSyncWordPress(evt)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 transition"
+                  title="WordPress वर सिंक करा"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span>WP सिंक</span>
+                </button>
+                <button
+                  onClick={() => openEditModal(evt)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
+            {/* Sync Feedback */}
+            {syncStatus[evt.id] && (
+              <div className="p-2 rounded-xl text-[11px] font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300 animate-fade-in">
+                {syncStatus[evt.id]}
+              </div>
+            )}
           </div>
         ))}
       </div>

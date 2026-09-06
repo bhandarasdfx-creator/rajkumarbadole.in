@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag } from 'lucide-react';
+import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag, Globe } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { GalleryItem, UserProfile } from '@/lib/types';
+import { pushGalleryToWordPress } from '@/lib/wordpress-sync';
 
 export default function GalleryPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
   const [title, setTitle] = useState('');
@@ -45,6 +47,29 @@ export default function GalleryPage() {
     setCaption('');
     setToast('फोटो गॅलरीत यशस्वीरीत्या जोडला!');
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('हा फोटो काढून टाकायचा आहे का?')) {
+      localStore.deleteGallery(id);
+      loadData();
+    }
+  };
+
+  const handleSyncWordPress = async (item: GalleryItem) => {
+    setSyncStatus(prev => ({ ...prev, [item.id]: 'सिंक करत आहे...' }));
+    const result = await pushGalleryToWordPress(item);
+    setSyncStatus(prev => ({
+      ...prev,
+      [item.id]: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+    }));
+    setTimeout(() => {
+      setSyncStatus(prev => {
+        const copy = { ...prev };
+        delete copy[item.id];
+        return copy;
+      });
+    }, 6000);
   };
 
   return (
@@ -97,6 +122,31 @@ export default function GalleryPage() {
               <h3 className="text-sm font-bold text-white">{item.title}</h3>
               {item.caption && (
                 <p className="text-xs text-slate-400">{item.caption}</p>
+              )}
+
+              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                <button
+                  onClick={() => handleSyncWordPress(item)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 transition"
+                  title="WordPress वर सिंक करा"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span>WP सिंक</span>
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                  title="काढून टाका"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Sync Feedback */}
+              {syncStatus[item.id] && (
+                <div className="p-2 rounded-xl text-[11px] font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300 animate-fade-in">
+                  {syncStatus[item.id]}
+                </div>
               )}
             </div>
           </div>

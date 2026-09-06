@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Video, PlusCircle, Play, Trash2, Edit, Check, ExternalLink } from 'lucide-react';
+import { Video, PlusCircle, Play, Trash2, Edit, Check, ExternalLink, Globe } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { VideoItem, UserProfile } from '@/lib/types';
+import { pushVideoToWordPress } from '@/lib/wordpress-sync';
 
 export default function VideosPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
   const [title, setTitle] = useState('');
@@ -55,6 +57,29 @@ export default function VideosPage() {
     setDescription('');
     setToast('नवीन व्हिडिओ यशस्वीरीत्या जोडला!');
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('हा व्हिडिओ काढून टाकायचा आहे का?')) {
+      localStore.deleteVideo(id);
+      loadData();
+    }
+  };
+
+  const handleSyncWordPress = async (video: VideoItem) => {
+    setSyncStatus(prev => ({ ...prev, [video.id]: 'सिंक करत आहे...' }));
+    const result = await pushVideoToWordPress(video);
+    setSyncStatus(prev => ({
+      ...prev,
+      [video.id]: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+    }));
+    setTimeout(() => {
+      setSyncStatus(prev => {
+        const copy = { ...prev };
+        delete copy[video.id];
+        return copy;
+      });
+    }, 6000);
   };
 
   return (
@@ -122,6 +147,31 @@ export default function VideosPage() {
               <h3 className="text-sm font-bold text-white leading-snug">{vid.title}</h3>
               {vid.description && (
                 <p className="text-xs text-slate-400 line-clamp-2">{vid.description}</p>
+              )}
+
+              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                <button
+                  onClick={() => handleSyncWordPress(vid)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 transition"
+                  title="WordPress वर सिंक करा"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span>WP सिंक</span>
+                </button>
+                <button
+                  onClick={() => handleDelete(vid.id)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                  title="काढून टाका"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Sync Feedback */}
+              {syncStatus[vid.id] && (
+                <div className="p-2 rounded-xl text-[11px] font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300 animate-fade-in">
+                  {syncStatus[vid.id]}
+                </div>
               )}
             </div>
           </div>

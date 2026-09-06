@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, PlusCircle, CheckCircle, Edit, Trash2, Check } from 'lucide-react';
+import { Sparkles, PlusCircle, CheckCircle, Edit, Trash2, Check, Globe } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { Initiative, UserProfile } from '@/lib/types';
+import { pushInitiativeToWordPress } from '@/lib/wordpress-sync';
 
 export default function InitiativesPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInit, setEditingInit] = useState<Initiative | null>(null);
+  const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
   const [title, setTitle] = useState('');
@@ -63,6 +65,22 @@ export default function InitiativesPage() {
     setIsModalOpen(false);
     setToast(editingInit ? 'उपक्रम अद्ययावत केला!' : 'नवीन विशेष उपक्रम यशस्वीरीत्या जोडला!');
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const handleSyncWordPress = async (init: Initiative) => {
+    setSyncStatus(prev => ({ ...prev, [init.id]: 'सिंक करत आहे...' }));
+    const result = await pushInitiativeToWordPress(init);
+    setSyncStatus(prev => ({
+      ...prev,
+      [init.id]: result.success ? `✓ ${result.message}` : `✗ ${result.message}`
+    }));
+    setTimeout(() => {
+      setSyncStatus(prev => {
+        const copy = { ...prev };
+        delete copy[init.id];
+        return copy;
+      });
+    }, 6000);
   };
 
   return (
@@ -122,13 +140,30 @@ export default function InitiativesPage() {
               <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" /> सक्रिय
               </span>
-              <button
-                onClick={() => openEditModal(init)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleSyncWordPress(init)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 transition"
+                  title="WordPress वर सिंक करा"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span>WP सिंक</span>
+                </button>
+                <button
+                  onClick={() => openEditModal(init)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
+            {/* Sync Feedback */}
+            {syncStatus[init.id] && (
+              <div className="p-2 rounded-xl text-[11px] font-medium bg-blue-500/10 border border-blue-500/20 text-blue-300 animate-fade-in">
+                {syncStatus[init.id]}
+              </div>
+            )}
           </div>
         ))}
       </div>

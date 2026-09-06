@@ -37,3 +37,7 @@ next-env.d.ts
 
 # large zips (keep backups local)
 *.zip
+
+# scratch and local credentials
+scratch/
+Credential/
