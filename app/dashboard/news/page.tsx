@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { NewsPost, UserProfile, PostStatus } from '@/lib/types';
-import { pushNewsToWordPress, triggerWordPressSync } from '@/lib/wordpress-sync';
+import { pushNewsToWordPress, triggerWordPressSync, deleteItemFromWordPress } from '@/lib/wordpress-sync';
 import SectionGuard from '@/components/SectionGuard';
 
 export default function NewsPage() {
@@ -180,10 +180,14 @@ export default function NewsPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('ही बातमी काढून टाकायची आहे का?')) {
-      localStore.deleteNews(id);
+  const handleDelete = async (post: NewsPost) => {
+    if (confirm(`'${post.title}' ही बातमी Newsroom आणि मुख्य वेबसाईट (WordPress) दोन्हीवरून कायमची काढून टाकायची आहे का?`)) {
+      localStore.deleteNews(post.id);
       loadData();
+      setToast('WordPress मधून बातमी काढत आहे...');
+      const res = await deleteItemFromWordPress('news', post.id, post.title);
+      setToast(res.message || 'बातमी काढण्यात आली.');
+      setTimeout(() => setToast(''), 4000);
     }
   };
 
@@ -468,7 +472,7 @@ export default function NewsPage() {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(post.id)}
+                        onClick={() => handleDelete(post)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
                         title="काढून टाका"
                       >

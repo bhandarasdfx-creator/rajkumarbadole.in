@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag, Globe, Upload } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { GalleryItem, UserProfile } from '@/lib/types';
-import { pushGalleryToWordPress } from '@/lib/wordpress-sync';
+import { pushGalleryToWordPress, deleteItemFromWordPress } from '@/lib/wordpress-sync';
 import SectionGuard from '@/components/SectionGuard';
 
 export default function GalleryPage() {
@@ -62,10 +62,14 @@ export default function GalleryPage() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('हा फोटो काढून टाकायचा आहे का?')) {
-      localStore.deleteGallery(id);
+  const handleDelete = async (item: GalleryItem) => {
+    if (confirm(`'${item.title}' हा फोटो Newsroom आणि मुख्य वेबसाईट (WordPress) दोन्हीवरून कायमचा काढून टाकायचा आहे का?`)) {
+      localStore.deleteGallery(item.id);
       loadData();
+      setToast('WordPress मधून फोटो हटवत आहे...');
+      const res = await deleteItemFromWordPress('gallery', item.id, item.title);
+      setToast(res.message || 'फोटो काढण्यात आला.');
+      setTimeout(() => setToast(''), 4000);
     }
   };
 
@@ -148,7 +152,7 @@ export default function GalleryPage() {
                   <span>WP सिंक</span>
                 </button>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => handleDelete(item)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
                   title="काढून टाका"
                 >

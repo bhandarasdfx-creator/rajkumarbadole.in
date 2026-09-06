@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { DevelopmentWork, UserProfile } from '@/lib/types';
-import { pushWorkToWordPress } from '@/lib/wordpress-sync';
+import { pushWorkToWordPress, deleteItemFromWordPress } from '@/lib/wordpress-sync';
 import SectionGuard from '@/components/SectionGuard';
 
 export default function WorksPage() {
@@ -107,10 +107,14 @@ export default function WorksPage() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('हे विकासकाम काढून टाकायचे आहे का?')) {
-      localStore.deleteWork(id);
+  const handleDelete = async (work: DevelopmentWork) => {
+    if (confirm(`'${work.title}' हे विकासकाम Newsroom आणि मुख्य वेबसाईट (WordPress) दोन्हीवरून कायमचे काढून टाकायचे आहे का?`)) {
+      localStore.deleteWork(work.id);
       loadData();
+      setToast('WordPress मधून विकासकाम काढत आहे...');
+      const res = await deleteItemFromWordPress('work', work.id, work.title);
+      setToast(res.message || 'विकासकाम काढण्यात आले.');
+      setTimeout(() => setToast(''), 4000);
     }
   };
 
@@ -267,7 +271,7 @@ export default function WorksPage() {
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(work.id)}
+                  onClick={() => handleDelete(work)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
                   title="काढून टाका"
                 >

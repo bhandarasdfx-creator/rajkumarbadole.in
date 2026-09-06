@@ -152,3 +152,24 @@ export async function pushGalleryToWordPress(item: any): Promise<{ success: bool
       : sync.message
   };
 }
+
+export async function deleteItemFromWordPress(
+  type: 'video' | 'gallery' | 'news' | 'work' | 'initiative' | 'event',
+  id: string,
+  title?: string,
+  wpId?: number
+): Promise<{ success: boolean; message: string }> {
+  const sync = await triggerWordPressSync({
+    delete_item: {
+      type,
+      id,
+      title: title || '',
+      wp_id: wpId || 0
+    }
+  });
+  return {
+    success: sync.success,
+    message: sync.message
+  };
+}
+

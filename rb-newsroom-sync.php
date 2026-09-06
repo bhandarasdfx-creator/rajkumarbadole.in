@@ -74,6 +74,16 @@ class RB_Newsroom_Sync {
     public function handle_webhook_sync($request) {
         $params = $request->get_json_params();
 
+        // 0. Deletion Sync (e.g. user clicked "Delete" on an item in Newsroom)
+        if (!empty($params['delete_item']) && is_array($params['delete_item'])) {
+            $type = sanitize_key($params['delete_item']['type'] ?? '');
+            $id = sanitize_text_field($params['delete_item']['id'] ?? '');
+            $title = sanitize_text_field($params['delete_item']['title'] ?? '');
+            $wp_id = intval($params['delete_item']['wp_id'] ?? 0);
+            $res = $this->delete_single_item($type, $id, $title, $wp_id);
+            return rest_ensure_response($res);
+        }
+
         // 1. Single Item Sync (e.g. user clicked "WP सिंक" on a card)
         if (!empty($params['single_item']) && is_array($params['single_item'])) {
             $type = sanitize_key($params['single_item']['type'] ?? '');
@@ -184,6 +194,88 @@ class RB_Newsroom_Sync {
         ];
     }
 
+    /**
+     * Delete an item from WordPress
+     */
+    public function delete_single_item($type, $id, $title = '', $wp_id = 0) {
+        $post_type = 'post';
+        $label = 'घटक';
+
+        switch ($type) {
+            case 'videos':
+            case 'video':
+                $post_type = 'rb_video';
+                $label = 'व्हिडिओ';
+                break;
+
+            case 'gallery':
+                $post_type = 'rb_gallery';
+                $label = 'फोटो गॅलरी';
+                break;
+
+            case 'news':
+                $post_type = 'post';
+                $label = 'बातमी';
+                break;
+
+            case 'works':
+            case 'work':
+                $post_type = 'rb_work';
+                $label = 'विकासकाम';
+                break;
+
+            case 'initiatives':
+            case 'initiative':
+                $post_type = 'rb_initiative';
+                $label = 'विशेष उपक्रम';
+                break;
+
+            case 'events':
+            case 'event':
+                $post_type = 'rb_event';
+                $label = 'कार्यक्रम';
+                break;
+        }
+
+        $target_id = $wp_id;
+        if (!$target_id) {
+            $target_id = $this->find_existing_post($post_type, $id, $title);
+        }
+
+        if (!$target_id && !empty($title)) {
+            $clean_title = html_entity_decode(strip_tags($title), ENT_QUOTES, 'UTF-8');
+            global $wpdb;
+            $found = $wpdb->get_var($wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND (post_title = %s OR post_title LIKE %s) LIMIT 1",
+                $post_type,
+                $clean_title,
+                '%' . $wpdb->esc_like(mb_substr($clean_title, 0, 20)) . '%'
+            ));
+            if ($found) {
+                $target_id = intval($found);
+            }
+        }
+
+        if ($target_id) {
+            $thumb_id = get_post_thumbnail_id($target_id);
+            wp_delete_post($target_id, true);
+            if ($thumb_id) {
+                wp_delete_attachment($thumb_id, true);
+            }
+            flush_rewrite_rules(false);
+            return [
+                'success'    => true,
+                'message'    => "✓ WordPress मधून {$label} कायमचा काढून टाकण्यात आला.",
+                'deleted_id' => $target_id
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => "हा {$label} WordPress वर सापडला नाही किंवा आधीच काढला गेला आहे."
+        ];
+    }
+
     public function handle_manual_sync() {
         if (!current_user_can('manage_options')) {
             wp_die('Unauthorized');
@@ -286,8 +378,53 @@ class RB_Newsroom_Sync {
             }
         }
 
+        // 7. Cleanup items deleted from Newsroom (orphaned items)
+        if (!empty($data) && is_array($data)) {
+            $cleanup_map = [
+                'rb_video'      => $data['videos'] ?? null,
+                'rb_gallery'    => $data['gallery'] ?? null,
+                'post'          => $data['latest_news'] ?? null,
+                'rb_work'       => $data['development_works'] ?? null,
+                'rb_initiative' => $data['initiatives'] ?? null,
+                'rb_event'      => $data['events'] ?? null,
+            ];
+
+            foreach ($cleanup_map as $cpt => $items_list) {
+                if ($items_list !== null && is_array($items_list)) {
+                    $active_ids = [];
+                    foreach ($items_list as $it) {
+                        if (!empty($it['id'])) $active_ids[] = (string)$it['id'];
+                    }
+                    $this->cleanup_deleted_newsroom_items($cpt, $active_ids);
+                }
+            }
+        }
+
         update_option('rb_last_synced_at', current_time('mysql'));
         return $counts;
+    }
+
+    private function cleanup_deleted_newsroom_items($cpt, $active_newsroom_ids) {
+        $q = new WP_Query([
+            'post_type'      => $cpt,
+            'meta_key'       => '_rb_newsroom_id',
+            'posts_per_page' => 100,
+            'post_status'    => 'any',
+            'fields'         => 'ids'
+        ]);
+
+        if (!empty($q->posts)) {
+            foreach ($q->posts as $pid) {
+                $nid = (string)get_post_meta($pid, '_rb_newsroom_id', true);
+                if ($nid && !in_array($nid, $active_newsroom_ids, true)) {
+                    $thumb_id = get_post_thumbnail_id($pid);
+                    wp_delete_post($pid, true);
+                    if ($thumb_id) {
+                        wp_delete_attachment($thumb_id, true);
+                    }
+                }
+            }
+        }
     }
 
     // ==========================================

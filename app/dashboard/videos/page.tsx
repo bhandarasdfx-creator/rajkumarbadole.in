@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Video, PlusCircle, Play, Trash2, Edit, Check, ExternalLink, Globe } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { VideoItem, UserProfile } from '@/lib/types';
-import { pushVideoToWordPress } from '@/lib/wordpress-sync';
+import { pushVideoToWordPress, deleteItemFromWordPress } from '@/lib/wordpress-sync';
 import SectionGuard from '@/components/SectionGuard';
 
 export default function VideosPage() {
@@ -60,10 +60,14 @@ export default function VideosPage() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('हा व्हिडिओ काढून टाकायचा आहे का?')) {
-      localStore.deleteVideo(id);
+  const handleDelete = async (video: VideoItem) => {
+    if (confirm(`'${video.title}' हा व्हिडिओ Newsroom व मुख्य वेबसाईट (WordPress) दोन्हीवरून कायमचा काढून टाकायचा आहे का?`)) {
+      localStore.deleteVideo(video.id);
       loadData();
+      setToast('WordPress मधून व्हिडिओ काढत आहे...');
+      const res = await deleteItemFromWordPress('video', video.id, video.title);
+      setToast(res.message || 'व्हिडिओ काढण्यात आला.');
+      setTimeout(() => setToast(''), 4000);
     }
   };
 
@@ -161,7 +165,7 @@ export default function VideosPage() {
                   <span>WP सिंक</span>
                 </button>
                 <button
-                  onClick={() => handleDelete(vid.id)}
+                  onClick={() => handleDelete(vid)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
                   title="काढून टाका"
                 >
