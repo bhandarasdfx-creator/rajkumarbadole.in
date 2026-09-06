@@ -251,12 +251,12 @@ export default function SettingsPage() {
 
         <div>
           <a
-            href="/rajkumarbadole-newsroom-sync.zip"
-            download="rajkumarbadole-newsroom-sync.zip"
+            href="/rb-newsroom-sync.zip"
+            download="rb-newsroom-sync.zip"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-600/20"
           >
             <Download className="w-4 h-4" />
-            <span>WordPress प्लगइन ZIP डाऊनलोड करा (.zip)</span>
+            <span>नवीन WordPress प्लगइन ZIP डाऊनलोड करा (rb-newsroom-sync.zip)</span>
           </a>
         </div>
 

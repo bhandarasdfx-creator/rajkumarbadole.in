@@ -13,7 +13,10 @@ import {
   ExternalLink,
   Eye,
   Check,
-  Globe
+  Globe,
+  Upload,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { NewsPost, UserProfile } from '@/lib/types';
@@ -71,6 +74,18 @@ export default function NewsPage() {
     setFeaturedImage(p.featured_image || '/assets/rajkumar-badole-portrait.png');
     setStatus(p.status === 'published' ? 'published' : 'draft');
     setIsModalOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setFeaturedImage(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -333,29 +348,90 @@ export default function NewsPage() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">मुख्य छायाचित्र (Image URL / Path)</label>
-                <div className="flex gap-2">
+                <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                  <span>मुख्य छायाचित्र (Featured Image)</span>
+                  <span className="text-[11px] text-slate-400 font-normal">PC/मोबाईलमधून फोटो अपलोड करा किंवा निवडा</span>
+                </label>
+
+                {/* Upload & Preset Options */}
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer transition shadow-md shadow-amber-500/20">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>इमेज अपलोड करा (Upload Image)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedImage('/assets/rajkumar-badole-banner.png')}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition ${
+                      featuredImage === '/assets/rajkumar-badole-banner.png'
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    बॅनर निवडा
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedImage('/assets/rajkumar-badole-standy.png')}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition ${
+                      featuredImage === '/assets/rajkumar-badole-standy.png'
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    स्टँडी निवडा
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedImage('/assets/rajkumar-badole-portrait.png')}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium border transition ${
+                      featuredImage === '/assets/rajkumar-badole-portrait.png'
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    पोर्ट्रेट निवडा
+                  </button>
+                </div>
+
+                {/* Input & Preview */}
+                <div className="space-y-2">
                   <input
                     type="text"
                     value={featuredImage}
                     onChange={(e) => setFeaturedImage(e.target.value)}
-                    placeholder="/assets/rajkumar-badole-portrait.png"
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-mono text-xs"
+                    placeholder="किंवा थेट इमेज लिंक टाका (/assets/... किंवा https://...)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-mono text-xs"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setFeaturedImage('/assets/rajkumar-badole-banner.png')}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
-                  >
-                    बॅनर निवडा
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFeaturedImage('/assets/rajkumar-badole-standy.png')}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
-                  >
-                    स्टँडी निवडा
-                  </button>
+
+                  {featuredImage && (
+                    <div className="relative w-full h-32 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group">
+                      <img
+                        src={featuredImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                        <span className="text-xs text-slate-200">निवडलेले छायाचित्र</span>
+                        <button
+                          type="button"
+                          onClick={() => setFeaturedImage('')}
+                          className="px-2.5 py-1 rounded-lg bg-red-600/90 text-white text-xs font-bold hover:bg-red-500 transition"
+                        >
+                          काढून टाका
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
