@@ -37,6 +37,9 @@ class RB_Newsroom_Sync {
         // Dynamic footer injector for About & Profile section (#about)
         add_action('wp_footer', [$this, 'inject_dynamic_about_section']);
 
+        // Server-side HTML buffer replacement for #about on homepage
+        add_action('template_redirect', [$this, 'start_about_output_buffer']);
+
         // Auto-flush rewrite rules so CPT single pages (like gallery) work immediately
         add_action('init', [$this, 'ensure_cpt_and_rewrites'], 99);
     }
@@ -710,46 +713,53 @@ class RB_Newsroom_Sync {
         $about = get_option('rb_about_profile_data');
         if (empty($about) || !is_array($about)) return;
 
-        $eyebrow = esc_js($about['eyebrow'] ?? 'माझा प्रवास');
-        $title = esc_js($about['title'] ?? 'सार्वजनिक जीवनातील प्रवास');
-        $desc = esc_js($about['description'] ?? '');
-        $portrait = esc_url($about['portrait_url'] ?? '');
-        $btn_text = esc_js($about['button_text'] ?? 'संपर्क माहिती');
-        $btn_url = esc_url($about['button_url'] ?? '#contact');
-        $facts_json = wp_json_encode($about['facts'] ?? []);
+        $eyebrow  = $about['eyebrow'] ?? 'माझा प्रवास';
+        $title    = $about['title'] ?? 'सार्वजनिक जीवनातील प्रवास';
+        $desc     = $about['description'] ?? '';
+        $portrait = $about['portrait_url'] ?? '';
+        $btn_text = $about['button_text'] ?? 'संपर्क माहिती';
+        $btn_url  = $about['button_url'] ?? '#contact';
+        $facts    = $about['facts'] ?? [];
         ?>
         <script id="rb-newsroom-about-sync">
         (function(){
             function updateAboutSection() {
                 var sec = document.querySelector('#about');
                 if (!sec) return;
-                
-                var eyebrowEl = sec.querySelector('.eyebrow');
-                if (eyebrowEl && "<?php echo $eyebrow; ?>") {
-                    eyebrowEl.textContent = "<?php echo $eyebrow; ?>";
+
+                var eyebrowVal = <?php echo wp_json_encode($eyebrow); ?>;
+                var titleVal = <?php echo wp_json_encode($title); ?>;
+                var descVal = <?php echo wp_json_encode($desc); ?>;
+                var portraitVal = <?php echo wp_json_encode($portrait); ?>;
+                var btnTextVal = <?php echo wp_json_encode($btn_text); ?>;
+                var btnUrlVal = <?php echo wp_json_encode($btn_url); ?>;
+                var factsVal = <?php echo wp_json_encode($facts); ?>;
+
+                if (eyebrowVal) {
+                    var eyebrowEl = sec.querySelector('.eyebrow');
+                    if (eyebrowEl) eyebrowEl.textContent = eyebrowVal;
                 }
-                
-                var h2El = sec.querySelector('h2');
-                if (h2El && "<?php echo $title; ?>") {
-                    h2El.textContent = "<?php echo $title; ?>";
+
+                if (titleVal) {
+                    var h2El = sec.querySelector('h2');
+                    if (h2El) h2El.textContent = titleVal;
                 }
-                
-                var pEl = sec.querySelector('p');
-                if (pEl && "<?php echo $desc; ?>") {
-                    pEl.textContent = "<?php echo $desc; ?>";
+
+                if (descVal) {
+                    var pEl = sec.querySelector('p');
+                    if (pEl) pEl.textContent = descVal;
                 }
-                
-                var imgEl = sec.querySelector('.profile-photo img');
-                if (imgEl && "<?php echo $portrait; ?>") {
-                    imgEl.src = "<?php echo $portrait; ?>";
+
+                if (portraitVal) {
+                    var imgEl = sec.querySelector('.profile-photo img');
+                    if (imgEl) imgEl.src = portraitVal;
                 }
-                
-                var facts = <?php echo $facts_json; ?>;
-                if (Array.isArray(facts) && facts.length > 0) {
+
+                if (Array.isArray(factsVal) && factsVal.length > 0) {
                     var factsEl = sec.querySelector('.facts');
                     if (factsEl) {
                         factsEl.innerHTML = '';
-                        facts.forEach(function(f){
+                        factsVal.forEach(function(f){
                             var d = document.createElement('div');
                             d.className = 'fact';
                             var st = document.createElement('strong');
@@ -762,11 +772,11 @@ class RB_Newsroom_Sync {
                         });
                     }
                 }
-                
+
                 var btnEl = sec.querySelector('a.btn-primary');
                 if (btnEl) {
-                    if ("<?php echo $btn_url; ?>") btnEl.href = "<?php echo $btn_url; ?>";
-                    if ("<?php echo $btn_text; ?>") btnEl.innerHTML = "<?php echo $btn_text; ?> <span>&rarr;</span>";
+                    if (btnUrlVal) btnEl.href = btnUrlVal;
+                    if (btnTextVal) btnEl.innerHTML = btnTextVal + ' <span>&rarr;</span>';
                 }
             }
             if (document.readyState === 'loading') {
@@ -777,6 +787,65 @@ class RB_Newsroom_Sync {
         })();
         </script>
         <?php
+    }
+
+    /**
+     * Start output buffering on front page to replace #about section server-side
+     */
+    public function start_about_output_buffer() {
+        if (!is_admin() && (is_front_page() || is_home())) {
+            ob_start([$this, 'filter_about_html_output']);
+        }
+    }
+
+    /**
+     * Replace #about section in the buffered HTML
+     */
+    public function filter_about_html_output($html) {
+        $about = get_option('rb_about_profile_data');
+        if (empty($about) || !is_array($about)) return $html;
+
+        $pattern = '/<section\s+class="[^"]*section[^"]*"\s+id="about">.*?<\/section>/is';
+        $new_section = $this->render_about_html($about);
+        if ($new_section && preg_match($pattern, $html)) {
+            return preg_replace($pattern, $new_section, $html, 1);
+        }
+        return $html;
+    }
+
+    /**
+     * Generate HTML for the about section
+     */
+    public function render_about_html($about) {
+        $eyebrow  = esc_html($about['eyebrow'] ?? 'माझा प्रवास');
+        $title    = esc_html($about['title'] ?? 'सार्वजनिक जीवनातील प्रवास');
+        $desc     = esc_html($about['description'] ?? '');
+        $portrait = esc_url($about['portrait_url'] ?? '');
+        if (empty($portrait)) {
+            $portrait = get_template_directory_uri() . '/assets/images/rajkumar-badole-portrait.png';
+        }
+        $btn_text = esc_html($about['button_text'] ?? 'संपर्क माहिती');
+        $btn_url  = esc_url($about['button_url'] ?? '#contact');
+
+        $facts_html = '';
+        if (!empty($about['facts']) && is_array($about['facts'])) {
+            foreach ($about['facts'] as $f) {
+                $t = esc_html($f['title'] ?? '');
+                $s = esc_html($f['subtitle'] ?? '');
+                $facts_html .= '<div class="fact"><strong>' . $t . '</strong><span>' . $s . '</span></div>';
+            }
+        }
+
+        return '<section class="section" id="about">' .
+            '<div class="container profile">' .
+            '<div class="profile-photo reveal"><img src="' . $portrait . '" alt="राजकुमार बडोले"></div>' .
+            '<div class="reveal">' .
+            '<div class="eyebrow">' . $eyebrow . '</div>' .
+            '<h2>' . $title . '</h2>' .
+            '<p>' . $desc . '</p>' .
+            '<div class="facts">' . $facts_html . '</div>' .
+            '<a class="btn btn-primary" href="' . $btn_url . '">' . $btn_text . ' <span>&rarr;</span></a>' .
+            '</div></div></section>';
     }
 
     /**
@@ -801,35 +870,7 @@ class RB_Newsroom_Sync {
             ];
         }
 
-        ob_start();
-        ?>
-        <section class="section rb-about-section" id="about">
-            <div class="container profile">
-                <div class="profile-photo reveal">
-                    <img src="<?php echo esc_url($about['portrait_url']); ?>" alt="राजकुमार बडोले">
-                </div>
-                <div class="reveal">
-                    <div class="eyebrow"><?php echo esc_html($about['eyebrow']); ?></div>
-                    <h2><?php echo esc_html($about['title']); ?></h2>
-                    <p><?php echo esc_html($about['description']); ?></p>
-                    <div class="facts">
-                        <?php if (!empty($about['facts']) && is_array($about['facts'])): ?>
-                            <?php foreach ($about['facts'] as $fact): ?>
-                                <div class="fact">
-                                    <strong><?php echo esc_html($fact['title'] ?? ''); ?></strong>
-                                    <span><?php echo esc_html($fact['subtitle'] ?? ''); ?></span>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                    <a class="btn btn-primary" href="<?php echo esc_url($about['button_url'] ?? '#contact'); ?>">
-                        <?php echo esc_html($about['button_text'] ?? 'संपर्क माहिती'); ?> <span>&rarr;</span>
-                    </a>
-                </div>
-            </div>
-        </section>
-        <?php
-        return ob_get_clean();
+        return $this->render_about_html($about);
     }
 
     private function attach_image_to_post($post_id, $image_data_or_url, $title = '') {
