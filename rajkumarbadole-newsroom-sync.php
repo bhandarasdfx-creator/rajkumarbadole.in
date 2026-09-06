@@ -11,6 +11,18 @@
 
 if (!defined('ABSPATH')) exit;
 
+register_activation_hook(__FILE__, 'rb_newsroom_sync_activate');
+function rb_newsroom_sync_activate() {
+    require_once(ABSPATH . 'wp-admin/includes/plugin.php');
+    deactivate_plugins([
+        'rajkumarbadole-newsroom-sync/rajkumarbadole-newsroom-sync.php',
+        'rajkumarbadole-newsroom-sync/rb-newsroom-sync.php',
+        'rb-newsroom-sync/rb-newsroom-sync.php'
+    ]);
+    flush_rewrite_rules(false);
+}
+
+if (!class_exists('RB_Newsroom_Sync')) {
 class RB_Newsroom_Sync {
     private $api_base_url;
 
@@ -1276,3 +1288,4 @@ class RB_Newsroom_Sync {
 }
 
 new RB_Newsroom_Sync();
+}
