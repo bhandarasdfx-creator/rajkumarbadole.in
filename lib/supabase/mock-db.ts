@@ -332,7 +332,7 @@ export const INITIAL_ABOUT_PROFILE: AboutProfile = {
   eyebrow: 'माझा प्रवास',
   title: 'सार्वजनिक जीवनातील प्रवास',
   description: 'राजकुमार सुदाम बडोले आमदार, अर्जुनी-मोरगाव विधानसभा मतदारसंघ सामाजिक न्याय • सर्वसमावेशक विकास • जनसेवा अभियंता म्हणून ग्रामीण भागातील समस्या जवळून...',
-  portrait_url: '/assets/rajkumar-badole-portrait.png',
+  portrait_url: 'https://rajkumarbadole.in/wp-content/themes/rbtheme_v15/assets/images/rajkumar-badole-portrait.png',
   facts: [
     { title: 'सार्वजनिक कार्य', subtitle: 'सामाजिक आणि सार्वजनिक उपक्रम' },
     { title: 'अर्जुनी-मोरगाव', subtitle: 'मतदारसंघाशी संबंधित कामकाज' },

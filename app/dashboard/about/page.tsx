@@ -253,7 +253,7 @@ export default function AboutPage() {
                   {/* Photo */}
                   <div className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden bg-slate-950 border-2 border-amber-500/30 shadow-lg shrink-0">
                     <img
-                      src={portraitUrl || '/assets/rajkumar-badole-portrait.png'}
+                      src={portraitUrl || 'https://rajkumarbadole.in/wp-content/themes/rbtheme_v15/assets/images/rajkumar-badole-portrait.png'}
                       alt="राजकुमार बडोले"
                       className="w-full h-full object-cover"
                     />
@@ -374,7 +374,7 @@ export default function AboutPage() {
                 <div className="flex flex-col sm:flex-row items-center gap-5">
                   <div className="w-24 h-32 rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-700 shrink-0">
                     <img
-                      src={portraitUrl || '/assets/rajkumar-badole-portrait.png'}
+                      src={portraitUrl || 'https://rajkumarbadole.in/wp-content/themes/rbtheme_v15/assets/images/rajkumar-badole-portrait.png'}
                       alt="Preview"
                       className="w-full h-full object-cover"
                     />
@@ -395,7 +395,7 @@ export default function AboutPage() {
 
                       <button
                         type="button"
-                        onClick={() => setPortraitUrl('/assets/rajkumar-badole-portrait.png')}
+                        onClick={() => setPortraitUrl('https://rajkumarbadole.in/wp-content/themes/rbtheme_v15/assets/images/rajkumar-badole-portrait.png')}
                         className="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition"
                       >
                         मूळ पोर्ट्रेट निवडा
