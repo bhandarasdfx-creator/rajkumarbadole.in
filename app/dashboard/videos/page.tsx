@@ -5,6 +5,7 @@ import { Video, PlusCircle, Play, Trash2, Edit, Check, ExternalLink, Globe } fro
 import { localStore } from '@/lib/supabase/client';
 import { VideoItem, UserProfile } from '@/lib/types';
 import { pushVideoToWordPress } from '@/lib/wordpress-sync';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function VideosPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -83,7 +84,8 @@ export default function VideosPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="videos" sectionTitle="व्हिडिओ व्यवस्थापन">
+      <div className="space-y-6">
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
           <Check className="w-5 h-5 text-emerald-400" />
@@ -255,6 +257,7 @@ export default function VideosPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </SectionGuard>
   );
 }

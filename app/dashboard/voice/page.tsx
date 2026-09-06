@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Phone, MapPin, CheckCircle, Clock, Archive, Check } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { CitizenVoiceMessage, UserProfile } from '@/lib/types';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function VoicePage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -37,7 +38,8 @@ export default function VoicePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="voice" sectionTitle="जनतेचा आवाज">
+      <div className="space-y-6">
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
           <Check className="w-5 h-5 text-emerald-400" />
@@ -133,5 +135,6 @@ export default function VoicePage() {
         ))}
       </div>
     </div>
+    </SectionGuard>
   );
 }

@@ -162,30 +162,46 @@ export default function Header({ currentUser, title, subtitle }: HeaderProps) {
               className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200"
               onClick={() => setDropdownOpen(false)}
             >
-              <Link
-                href="/dashboard/news"
-                className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
-              >
-                📰 नवीन बातमी / प्रेस नोट
-              </Link>
-              <Link
-                href="/dashboard/works"
-                className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
-              >
-                🏗️ नवीन विकासकाम (माझे काम)
-              </Link>
-              <Link
-                href="/dashboard/events"
-                className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
-              >
-                📅 नवीन कार्यक्रम / दौरा
-              </Link>
-              <Link
-                href="/dashboard/videos"
-                className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
-              >
-                🎥 नवीन YouTube व्हिडिओ
-              </Link>
+              {(currentUser.role === 'admin' || (currentUser.allowed_sections || ['news', 'works', 'events', 'gallery']).includes('news')) && (
+                <Link
+                  href="/dashboard/news"
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
+                >
+                  📰 नवीन बातमी / प्रेस नोट
+                </Link>
+              )}
+              {(currentUser.role === 'admin' || (currentUser.allowed_sections || ['news', 'works', 'events', 'gallery']).includes('works')) && (
+                <Link
+                  href="/dashboard/works"
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
+                >
+                  🏗️ नवीन विकासकाम (माझे काम)
+                </Link>
+              )}
+              {(currentUser.role === 'admin' || (currentUser.allowed_sections || []).includes('events')) && (
+                <Link
+                  href="/dashboard/events"
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
+                >
+                  📅 नवीन कार्यक्रम / दौरा
+                </Link>
+              )}
+              {(currentUser.role === 'admin' || (currentUser.allowed_sections || []).includes('videos')) && (
+                <Link
+                  href="/dashboard/videos"
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
+                >
+                  🎥 नवीन YouTube व्हिडिओ
+                </Link>
+              )}
+              {(currentUser.role === 'admin' || (currentUser.allowed_sections || []).includes('gallery')) && (
+                <Link
+                  href="/dashboard/gallery"
+                  className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-slate-800/80 hover:text-amber-400 transition"
+                >
+                  🖼️ नवीन फोटो अल्बम
+                </Link>
+              )}
               {currentUser.role === 'admin' && (
                 <Link
                   href="/dashboard/admin/users"

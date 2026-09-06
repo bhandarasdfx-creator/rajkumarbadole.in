@@ -5,6 +5,7 @@ import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag, Globe, Upload } fro
 import { localStore } from '@/lib/supabase/client';
 import { GalleryItem, UserProfile } from '@/lib/types';
 import { pushGalleryToWordPress } from '@/lib/wordpress-sync';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function GalleryPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -85,7 +86,8 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="gallery" sectionTitle="फोटो गॅलरी">
+      <div className="space-y-6">
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
           <Check className="w-5 h-5 text-emerald-400" />
@@ -294,6 +296,7 @@ export default function GalleryPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </SectionGuard>
   );
 }

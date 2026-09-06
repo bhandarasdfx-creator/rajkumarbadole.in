@@ -5,6 +5,7 @@ import { Sparkles, PlusCircle, CheckCircle, Edit, Trash2, Check, Globe } from 'l
 import { localStore } from '@/lib/supabase/client';
 import { Initiative, UserProfile } from '@/lib/types';
 import { pushInitiativeToWordPress } from '@/lib/wordpress-sync';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function InitiativesPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -84,7 +85,8 @@ export default function InitiativesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="initiatives" sectionTitle="विशेष उपक्रम">
+      <div className="space-y-6">
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
           <Check className="w-5 h-5 text-emerald-400" />
@@ -241,6 +243,7 @@ export default function InitiativesPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </SectionGuard>
   );
 }

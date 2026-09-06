@@ -5,6 +5,7 @@ import { Calendar, PlusCircle, MapPin, Clock, Users, Trash2, Edit, Check, Globe 
 import { localStore } from '@/lib/supabase/client';
 import { EventItem, UserProfile } from '@/lib/types';
 import { pushEventToWordPress } from '@/lib/wordpress-sync';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function EventsPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -96,7 +97,8 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="events" sectionTitle="कार्यक्रम व दौरे">
+      <div className="space-y-6">
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
           <Check className="w-5 h-5 text-emerald-400" />
@@ -309,6 +311,7 @@ export default function EventsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </SectionGuard>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { localStore } from '@/lib/supabase/client';
 import { NewsPost, UserProfile, PostStatus } from '@/lib/types';
 import { pushNewsToWordPress, triggerWordPressSync } from '@/lib/wordpress-sync';
+import SectionGuard from '@/components/SectionGuard';
 
 export default function NewsPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -230,7 +231,8 @@ export default function NewsPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <SectionGuard section="news" sectionTitle="बातम्या व प्रेस नोट">
+      <div className="space-y-6">
       {/* Toast Notification */}
       {toast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in backdrop-blur-lg">
@@ -732,6 +734,7 @@ export default function NewsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </SectionGuard>
   );
 }

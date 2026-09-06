@@ -21,8 +21,8 @@ import {
   ChevronRight,
   Database
 } from 'lucide-react';
-import { localStore } from '@/lib/supabase/client';
-import { UserProfile, UserRole } from '@/lib/types';
+import { localStore, ALL_APP_SECTIONS, DEFAULT_REPORTER_SECTIONS } from '@/lib/supabase/client';
+import { UserProfile, UserRole, AppSection } from '@/lib/types';
 
 interface SidebarProps {
   currentUser: UserProfile;
@@ -38,16 +38,35 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
     router.push('/login');
   };
 
-  const navItems = [
+  const navItems: {
+    href: string;
+    label: string;
+    icon: any;
+    count?: number;
+    badgeColor?: string;
+    section?: AppSection;
+  }[] = [
     { href: '/dashboard', label: 'मुख्य डॅशबोर्ड', icon: LayoutDashboard },
-    { href: '/dashboard/news', label: 'बातम्या व प्रेस नोट', icon: Newspaper, count: localStore.getNews().length },
-    { href: '/dashboard/works', label: 'माझे काम (विकासकामे)', icon: HardHat, count: localStore.getWorks().length },
-    { href: '/dashboard/initiatives', label: 'विशेष उपक्रम', icon: Sparkles, count: localStore.getInitiatives().length },
-    { href: '/dashboard/events', label: 'कार्यक्रम व दौरे', icon: Calendar, count: localStore.getEvents().length },
-    { href: '/dashboard/videos', label: 'व्हिडिओ व्यवस्थापन', icon: Video, count: localStore.getVideos().length },
-    { href: '/dashboard/gallery', label: 'फोटो गॅलरी', icon: ImageIcon, count: localStore.getGallery().length },
-    { href: '/dashboard/voice', label: 'जनतेचा आवाज', icon: MessageSquare, count: localStore.getVoiceMessages().filter(v => v.status === 'new').length, badgeColor: 'bg-amber-500' },
+    { href: '/dashboard/news', label: 'बातम्या व प्रेस नोट', icon: Newspaper, count: localStore.getNews().length, section: 'news' },
+    { href: '/dashboard/works', label: 'माझे काम (विकासकामे)', icon: HardHat, count: localStore.getWorks().length, section: 'works' },
+    { href: '/dashboard/initiatives', label: 'विशेष उपक्रम', icon: Sparkles, count: localStore.getInitiatives().length, section: 'initiatives' },
+    { href: '/dashboard/events', label: 'कार्यक्रम व दौरे', icon: Calendar, count: localStore.getEvents().length, section: 'events' },
+    { href: '/dashboard/videos', label: 'व्हिडिओ व्यवस्थापन', icon: Video, count: localStore.getVideos().length, section: 'videos' },
+    { href: '/dashboard/gallery', label: 'फोटो गॅलरी', icon: ImageIcon, count: localStore.getGallery().length, section: 'gallery' },
+    { href: '/dashboard/voice', label: 'जनतेचा आवाज', icon: MessageSquare, count: localStore.getVoiceMessages().filter(v => v.status === 'new').length, badgeColor: 'bg-amber-500', section: 'voice' },
   ];
+
+  const userAllowedSections = currentUser.role === 'admin'
+    ? ALL_APP_SECTIONS
+    : (currentUser.allowed_sections && currentUser.allowed_sections.length > 0
+        ? currentUser.allowed_sections
+        : (currentUser.role === 'reporter' ? DEFAULT_REPORTER_SECTIONS : ALL_APP_SECTIONS));
+
+  const visibleNavItems = navItems.filter(item => {
+    if (!item.section) return true;
+    if (currentUser.role === 'admin') return true;
+    return userAllowedSections.includes(item.section);
+  });
 
   const adminNavItems = [
     { href: '/dashboard/admin/users', label: 'युझर व्यवस्थापन', icon: Users, adminOnly: true },
@@ -90,11 +109,16 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
         <div className="px-3 py-4 space-y-6">
           {/* Content Management Group */}
           <div>
-            <div className="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              डेटा फीडिंग मॉड्यूल्स
+            <div className="px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>डेटा फीडिंग मॉड्यूल्स</span>
+              {currentUser.role !== 'admin' && (
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">
+                  {userAllowedSections.length} सेक्शन्स उपलब्ध
+                </span>
+              )}
             </div>
             <nav className="space-y-1">
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (

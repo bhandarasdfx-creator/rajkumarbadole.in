@@ -1,5 +1,6 @@
 export type UserRole = 'admin' | 'editor' | 'reporter';
 export type PublishPermission = 'direct_publish' | 'needs_approval';
+export type AppSection = 'news' | 'works' | 'initiatives' | 'events' | 'videos' | 'gallery' | 'voice';
 
 export interface UserProfile {
   id: string;
@@ -7,6 +8,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   publish_permission?: PublishPermission; // 'direct_publish' किंवा 'needs_approval'
+  allowed_sections?: AppSection[]; // ज्या विभागांचा ॲक्सेस आहे ते सेक्शन्स
   phone?: string;
   avatar_url?: string;
   is_active: boolean;

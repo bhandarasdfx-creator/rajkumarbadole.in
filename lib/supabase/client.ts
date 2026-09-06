@@ -8,7 +8,8 @@ import {
   VideoItem,
   GalleryItem,
   CitizenVoiceMessage,
-  ActivityLog
+  ActivityLog,
+  AppSection
 } from '../types';
 import {
   INITIAL_USERS,
@@ -29,9 +30,22 @@ export const isSupabaseConfigured = Boolean(
   supabaseKey && supabaseKey.length > 20 && !supabaseKey.includes('dummy')
 );
 
-export const supabase = isSupabaseConfigured
-  ? createSupabaseClient(supabaseUrl, supabaseKey)
-  : null;
+export const supabase = createSupabaseClient(supabaseUrl, supabaseKey || 'dummy-key');
+
+export const ALL_APP_SECTIONS: AppSection[] = ['news', 'works', 'initiatives', 'events', 'videos', 'gallery', 'voice'];
+export const DEFAULT_REPORTER_SECTIONS: AppSection[] = ['news', 'works', 'events', 'gallery'];
+
+function normalizeUserProfile(u: UserProfile): UserProfile {
+  if (!u) return u;
+  const sections = (u.allowed_sections && u.allowed_sections.length > 0)
+    ? u.allowed_sections
+    : (u.role === 'reporter' ? DEFAULT_REPORTER_SECTIONS : ALL_APP_SECTIONS);
+  return {
+    ...u,
+    allowed_sections: sections,
+    publish_permission: u.publish_permission || (u.role === 'reporter' ? 'needs_approval' : 'direct_publish')
+  };
+}
 
 // Local persistent store helper for seamless offline & testing mode
 class LocalDataStore {
@@ -56,20 +70,25 @@ class LocalDataStore {
 
   // Current Session User
   getCurrentUser(): UserProfile {
-    return this.getItem<UserProfile>('current_user', INITIAL_USERS[0]);
+    const user = this.getItem<UserProfile>('current_user', INITIAL_USERS[0]);
+    return normalizeUserProfile(user);
   }
 
   setCurrentUser(user: UserProfile | null): void {
     if (!user) {
       if (typeof window !== 'undefined') localStorage.removeItem('rb_current_user');
     } else {
-      this.setItem('current_user', user);
+      this.setItem('current_user', normalizeUserProfile(user));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('rb_user_changed'));
     }
   }
 
   // Users Management
   getUsers(): UserProfile[] {
-    return this.getItem<UserProfile[]>('users', INITIAL_USERS);
+    const users = this.getItem<UserProfile[]>('users', INITIAL_USERS);
+    return users.map(normalizeUserProfile);
   }
 
   saveUser(user: UserProfile): void {
