@@ -5,7 +5,8 @@ import {
   INITIAL_INITIATIVES,
   INITIAL_EVENTS,
   INITIAL_VIDEOS,
-  INITIAL_GALLERY
+  INITIAL_GALLERY,
+  INITIAL_ABOUT_PROFILE
 } from '@/lib/supabase/mock-db';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ export async function GET() {
     title: 'राजकुमार बडोले - अधिकृत डेटा फीड',
     generated_at: new Date().toISOString(),
     data: {
+      about_profile: INITIAL_ABOUT_PROFILE,
       latest_news: INITIAL_NEWS.filter(n => n.status === 'published'),
       development_works: INITIAL_WORKS,
       initiatives: INITIAL_INITIATIVES,

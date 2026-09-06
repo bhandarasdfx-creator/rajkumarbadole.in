@@ -9,7 +9,8 @@ import {
   GalleryItem,
   CitizenVoiceMessage,
   ActivityLog,
-  AppSection
+  AppSection,
+  AboutProfile
 } from '../types';
 import {
   INITIAL_USERS,
@@ -20,7 +21,8 @@ import {
   INITIAL_VIDEOS,
   INITIAL_GALLERY,
   INITIAL_VOICE,
-  INITIAL_LOGS
+  INITIAL_LOGS,
+  INITIAL_ABOUT_PROFILE
 } from './mock-db';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hkucqrhyxolwdewirtrl.supabase.co';
@@ -32,7 +34,7 @@ export const isSupabaseConfigured = Boolean(
 
 export const supabase = createSupabaseClient(supabaseUrl, supabaseKey || 'dummy-key');
 
-export const ALL_APP_SECTIONS: AppSection[] = ['news', 'works', 'initiatives', 'events', 'videos', 'gallery', 'voice'];
+export const ALL_APP_SECTIONS: AppSection[] = ['news', 'works', 'initiatives', 'events', 'videos', 'gallery', 'voice', 'about'];
 export const DEFAULT_REPORTER_SECTIONS: AppSection[] = ['news', 'works', 'events', 'gallery'];
 
 function normalizeUserProfile(u: UserProfile): UserProfile {
@@ -290,6 +292,23 @@ class LocalDataStore {
       this.setItem('voice', list);
       this.addLog('UPDATED_VOICE_STATUS', 'VoiceMessage', item.name + ' -> ' + status);
     }
+  }
+
+  // About Profile (परिचय व माझा प्रवास)
+  getAboutProfile(): AboutProfile {
+    return this.getItem<AboutProfile>('about_profile', INITIAL_ABOUT_PROFILE);
+  }
+
+  saveAboutProfile(profile: AboutProfile): void {
+    const data = { ...profile, updated_at: new Date().toISOString() };
+    this.setItem('about_profile', data);
+    this.addLog('UPDATED_ABOUT_PROFILE', 'About', data.title);
+  }
+
+  resetAboutProfile(): AboutProfile {
+    this.setItem('about_profile', INITIAL_ABOUT_PROFILE);
+    this.addLog('RESET_ABOUT_PROFILE', 'About', INITIAL_ABOUT_PROFILE.title);
+    return INITIAL_ABOUT_PROFILE;
   }
 
   // Activity Logs

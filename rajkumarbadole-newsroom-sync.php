@@ -3,7 +3,7 @@
  * Plugin Name: Rajkumar Badole Newsroom Data Feeder & Sync
  * Plugin URI: https://newsroom.rajkumarbadole.in
  * Description: rajkumarbadole.in ला 'राजकुमार बडोले डिजिटल न्यूज रूम' शी थेट जोडणारा अधिकृत टू-वे सिंक प्लगइन. (Supports Auto-Import, Webhook & Shortcodes)
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: Bhandara SDFX
  * Author URI: mailto:bhandara.sdfx@gmail.com
  * License: GPL-2.0+
@@ -32,6 +32,10 @@ class RB_Newsroom_Sync {
         add_shortcode('rb_events', [$this, 'render_events']);
         add_shortcode('rb_videos', [$this, 'render_videos']);
         add_shortcode('rb_gallery', [$this, 'render_gallery']);
+        add_shortcode('rb_about', [$this, 'render_about_shortcode']);
+
+        // Dynamic footer injector for About & Profile section (#about)
+        add_action('wp_footer', [$this, 'inject_dynamic_about_section']);
 
         // Auto-flush rewrite rules so CPT single pages (like gallery) work immediately
         add_action('init', [$this, 'ensure_cpt_and_rewrites'], 99);
@@ -169,6 +173,22 @@ class RB_Newsroom_Sync {
                 $post_id = $this->upsert_event_item($item);
                 $label = 'कार्यक्रम';
                 break;
+
+            case 'about':
+                $ok = $this->update_about_profile($item);
+                if ($ok) {
+                    update_option('rb_last_synced_at', current_time('mysql'));
+                    return [
+                        'success'  => true,
+                        'message'  => "✓ 'परिचय व माझा प्रवास' माहिती थेट rajkumarbadole.in वर सिंक झाली!",
+                        'wp_id'    => 1,
+                        'imported' => ['about' => 1]
+                    ];
+                }
+                return [
+                    'success' => false,
+                    'message' => 'WordPress मध्ये माहिती सेव्ह करता आली नाही.'
+                ];
 
             default:
                 return [
@@ -327,8 +347,16 @@ class RB_Newsroom_Sync {
             'initiatives' => 0,
             'events'      => 0,
             'videos'      => 0,
-            'gallery'     => 0
+            'gallery'     => 0,
+            'about'       => 0
         ];
+
+        // 0. Sync About / Profile
+        if (!empty($data['about_profile']) && is_array($data['about_profile'])) {
+            if ($this->update_about_profile($data['about_profile'])) {
+                $counts['about'] = 1;
+            }
+        }
 
         // 1. Sync News Posts -> 'post'
         if (!empty($data['latest_news']) && is_array($data['latest_news'])) {
@@ -628,6 +656,180 @@ class RB_Newsroom_Sync {
             return $post_id;
         }
         return 0;
+    }
+
+    /**
+     * Update About & Journey Profile in WordPress Options and Theme Mods
+     */
+    public function update_about_profile($data) {
+        if (empty($data) || !is_array($data)) return false;
+
+        $clean = [
+            'eyebrow'      => sanitize_text_field($data['eyebrow'] ?? 'माझा प्रवास'),
+            'title'        => sanitize_text_field($data['title'] ?? 'सार्वजनिक जीवनातील प्रवास'),
+            'description'  => sanitize_textarea_field($data['description'] ?? ''),
+            'portrait_url' => esc_url_raw($data['portrait_url'] ?? ''),
+            'button_text'  => sanitize_text_field($data['button_text'] ?? 'संपर्क माहिती'),
+            'button_url'   => sanitize_text_field($data['button_url'] ?? '#contact'),
+            'updated_at'   => current_time('mysql'),
+            'facts'        => []
+        ];
+
+        if (!empty($data['facts']) && is_array($data['facts'])) {
+            foreach ($data['facts'] as $f) {
+                if (is_array($f)) {
+                    $clean['facts'][] = [
+                        'title'    => sanitize_text_field($f['title'] ?? ''),
+                        'subtitle' => sanitize_text_field($f['subtitle'] ?? '')
+                    ];
+                }
+            }
+        }
+
+        // Save in WordPress Options
+        update_option('rb_about_profile_data', $clean);
+
+        // Update standard theme mods so native theme functions work without JS too
+        if (!empty($clean['description'])) {
+            set_theme_mod('about_text', $clean['description']);
+        }
+        if (!empty($clean['title'])) {
+            set_theme_mod('about_title', $clean['title']);
+        }
+        if (!empty($clean['eyebrow'])) {
+            set_theme_mod('about_eyebrow', $clean['eyebrow']);
+        }
+
+        return true;
+    }
+
+    /**
+     * Inject dynamic JS in wp_footer on homepage to update #about section in real time
+     */
+    public function inject_dynamic_about_section() {
+        $about = get_option('rb_about_profile_data');
+        if (empty($about) || !is_array($about)) return;
+
+        $eyebrow = esc_js($about['eyebrow'] ?? 'माझा प्रवास');
+        $title = esc_js($about['title'] ?? 'सार्वजनिक जीवनातील प्रवास');
+        $desc = esc_js($about['description'] ?? '');
+        $portrait = esc_url($about['portrait_url'] ?? '');
+        $btn_text = esc_js($about['button_text'] ?? 'संपर्क माहिती');
+        $btn_url = esc_url($about['button_url'] ?? '#contact');
+        $facts_json = wp_json_encode($about['facts'] ?? []);
+        ?>
+        <script id="rb-newsroom-about-sync">
+        (function(){
+            function updateAboutSection() {
+                var sec = document.querySelector('#about');
+                if (!sec) return;
+                
+                var eyebrowEl = sec.querySelector('.eyebrow');
+                if (eyebrowEl && "<?php echo $eyebrow; ?>") {
+                    eyebrowEl.textContent = "<?php echo $eyebrow; ?>";
+                }
+                
+                var h2El = sec.querySelector('h2');
+                if (h2El && "<?php echo $title; ?>") {
+                    h2El.textContent = "<?php echo $title; ?>";
+                }
+                
+                var pEl = sec.querySelector('p');
+                if (pEl && "<?php echo $desc; ?>") {
+                    pEl.textContent = "<?php echo $desc; ?>";
+                }
+                
+                var imgEl = sec.querySelector('.profile-photo img');
+                if (imgEl && "<?php echo $portrait; ?>") {
+                    imgEl.src = "<?php echo $portrait; ?>";
+                }
+                
+                var facts = <?php echo $facts_json; ?>;
+                if (Array.isArray(facts) && facts.length > 0) {
+                    var factsEl = sec.querySelector('.facts');
+                    if (factsEl) {
+                        factsEl.innerHTML = '';
+                        facts.forEach(function(f){
+                            var d = document.createElement('div');
+                            d.className = 'fact';
+                            var st = document.createElement('strong');
+                            st.textContent = f.title || '';
+                            var sp = document.createElement('span');
+                            sp.textContent = f.subtitle || '';
+                            d.appendChild(st);
+                            d.appendChild(sp);
+                            factsEl.appendChild(d);
+                        });
+                    }
+                }
+                
+                var btnEl = sec.querySelector('a.btn-primary');
+                if (btnEl) {
+                    if ("<?php echo $btn_url; ?>") btnEl.href = "<?php echo $btn_url; ?>";
+                    if ("<?php echo $btn_text; ?>") btnEl.innerHTML = "<?php echo $btn_text; ?> <span>&rarr;</span>";
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateAboutSection);
+            } else {
+                updateAboutSection();
+            }
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * Render standalone About shortcode: [rb_about]
+     */
+    public function render_about_shortcode($atts) {
+        $about = get_option('rb_about_profile_data');
+        if (empty($about) || !is_array($about)) {
+            $about = [
+                'eyebrow'      => 'माझा प्रवास',
+                'title'        => 'सार्वजनिक जीवनातील प्रवास',
+                'description'  => 'राजकुमार बडोले यांच्या सार्वजनिक जीवनातील प्रवास, उपक्रम आणि मतदारसंघाशी संबंधित कामांची माहिती येथे पाहता येईल.',
+                'portrait_url' => get_template_directory_uri() . '/assets/images/rajkumar-badole-portrait.png',
+                'button_text'  => 'संपर्क माहिती',
+                'button_url'   => '#contact',
+                'facts'        => [
+                    ['title' => 'सार्वजनिक कार्य', 'subtitle' => 'सामाजिक आणि सार्वजनिक उपक्रम'],
+                    ['title' => 'अर्जुनी-मोरगाव', 'subtitle' => 'मतदारसंघाशी संबंधित कामकाज'],
+                    ['title' => 'जनसंवाद', 'subtitle' => 'नागरिकांशी संवाद आणि निवेदने'],
+                    ['title' => 'विकासविषयक कामे', 'subtitle' => 'स्थानिक प्रश्नांवरील पाठपुरावा']
+                ]
+            ];
+        }
+
+        ob_start();
+        ?>
+        <section class="section rb-about-section" id="about">
+            <div class="container profile">
+                <div class="profile-photo reveal">
+                    <img src="<?php echo esc_url($about['portrait_url']); ?>" alt="राजकुमार बडोले">
+                </div>
+                <div class="reveal">
+                    <div class="eyebrow"><?php echo esc_html($about['eyebrow']); ?></div>
+                    <h2><?php echo esc_html($about['title']); ?></h2>
+                    <p><?php echo esc_html($about['description']); ?></p>
+                    <div class="facts">
+                        <?php if (!empty($about['facts']) && is_array($about['facts'])): ?>
+                            <?php foreach ($about['facts'] as $fact): ?>
+                                <div class="fact">
+                                    <strong><?php echo esc_html($fact['title'] ?? ''); ?></strong>
+                                    <span><?php echo esc_html($fact['subtitle'] ?? ''); ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    <a class="btn btn-primary" href="<?php echo esc_url($about['button_url'] ?? '#contact'); ?>">
+                        <?php echo esc_html($about['button_text'] ?? 'संपर्क माहिती'); ?> <span>&rarr;</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+        <?php
+        return ob_get_clean();
     }
 
     private function attach_image_to_post($post_id, $image_data_or_url, $title = '') {

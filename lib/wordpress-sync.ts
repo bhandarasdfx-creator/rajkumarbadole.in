@@ -1,4 +1,4 @@
-import { NewsPost, DevelopmentWork, EventItem } from './types';
+import { NewsPost, DevelopmentWork, EventItem, AboutProfile } from './types';
 
 export interface WordPressConfig {
   siteUrl: string;
@@ -172,4 +172,15 @@ export async function deleteItemFromWordPress(
     message: sync.message
   };
 }
+
+export async function pushAboutToWordPress(profile: AboutProfile): Promise<{ success: boolean; wpId?: number; message: string }> {
+  const sync = await triggerWordPressSync({ single_item: { type: 'about', data: profile } });
+  return {
+    success: sync.success,
+    message: sync.success
+      ? `✓ 'परिचय व माझा प्रवास' माहिती rajkumarbadole.in वर थेट सिंक झाली!`
+      : sync.message
+  };
+}
+
 

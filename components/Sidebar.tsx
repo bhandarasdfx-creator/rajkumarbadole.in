@@ -19,7 +19,8 @@ import {
   ExternalLink,
   ShieldCheck,
   ChevronRight,
-  Database
+  Database,
+  UserCheck
 } from 'lucide-react';
 import { localStore, ALL_APP_SECTIONS, DEFAULT_REPORTER_SECTIONS } from '@/lib/supabase/client';
 import { UserProfile, UserRole, AppSection } from '@/lib/types';
@@ -53,6 +54,7 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
     { href: '/dashboard/events', label: 'कार्यक्रम व दौरे', icon: Calendar, count: localStore.getEvents().length, section: 'events' },
     { href: '/dashboard/videos', label: 'व्हिडिओ व्यवस्थापन', icon: Video, count: localStore.getVideos().length, section: 'videos' },
     { href: '/dashboard/gallery', label: 'फोटो गॅलरी', icon: ImageIcon, count: localStore.getGallery().length, section: 'gallery' },
+    { href: '/dashboard/about', label: 'परिचय व माझा प्रवास', icon: UserCheck, section: 'about' },
     { href: '/dashboard/voice', label: 'जनतेचा आवाज', icon: MessageSquare, count: localStore.getVoiceMessages().filter(v => v.status === 'new').length, badgeColor: 'bg-amber-500', section: 'voice' },
   ];
 

@@ -1,6 +1,22 @@
 export type UserRole = 'admin' | 'editor' | 'reporter';
 export type PublishPermission = 'direct_publish' | 'needs_approval';
-export type AppSection = 'news' | 'works' | 'initiatives' | 'events' | 'videos' | 'gallery' | 'voice';
+export type AppSection = 'news' | 'works' | 'initiatives' | 'events' | 'videos' | 'gallery' | 'voice' | 'about';
+
+export interface AboutFact {
+  title: string;
+  subtitle: string;
+}
+
+export interface AboutProfile {
+  eyebrow: string;
+  title: string;
+  description: string;
+  portrait_url: string;
+  facts: AboutFact[];
+  button_text: string;
+  button_url: string;
+  updated_at?: string;
+}
 
 export interface UserProfile {
   id: string;

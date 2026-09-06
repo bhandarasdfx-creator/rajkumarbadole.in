@@ -47,6 +47,7 @@ const AVAILABLE_SECTIONS: {
   { id: 'events', label: 'कार्यक्रम व दौरे', sublabel: 'Events & Tours', icon: '📅' },
   { id: 'videos', label: 'व्हिडिओ व्यवस्थापन', sublabel: 'YouTube Videos', icon: '🎥' },
   { id: 'gallery', label: 'फोटो गॅलरी', sublabel: 'Photo Albums', icon: '🖼️' },
+  { id: 'about', label: 'परिचय व माझा प्रवास', sublabel: 'About & Profile', icon: '👤' },
   { id: 'voice', label: 'जनतेचा आवाज', sublabel: 'Citizen Voice', icon: '🗣️' },
 ];
 

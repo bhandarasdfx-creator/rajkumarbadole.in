@@ -7,7 +7,8 @@ import {
   VideoItem,
   GalleryItem,
   CitizenVoiceMessage,
-  ActivityLog
+  ActivityLog,
+  AboutProfile
 } from '../types';
 
 export const INITIAL_USERS: UserProfile[] = [
@@ -326,3 +327,20 @@ export const INITIAL_LOGS: ActivityLog[] = [
     created_at: '2026-09-02T10:15:00Z'
   }
 ];
+
+export const INITIAL_ABOUT_PROFILE: AboutProfile = {
+  eyebrow: 'माझा प्रवास',
+  title: 'सार्वजनिक जीवनातील प्रवास',
+  description: 'राजकुमार बडोले यांच्या सार्वजनिक जीवनातील प्रवास, उपक्रम आणि मतदारसंघाशी संबंधित कामांची माहिती येथे पाहता येईल.',
+  portrait_url: '/assets/rajkumar-badole-portrait.png',
+  facts: [
+    { title: 'सार्वजनिक कार्य', subtitle: 'सामाजिक आणि सार्वजनिक उपक्रम' },
+    { title: 'अर्जुनी-मोरगाव', subtitle: 'मतदारसंघाशी संबंधित कामकाज' },
+    { title: 'जनसंवाद', subtitle: 'नागरिकांशी संवाद आणि निवेदने' },
+    { title: 'विकासविषयक कामे', subtitle: 'स्थानिक प्रश्नांवरील पाठपुरावा' }
+  ],
+  button_text: 'संपर्क माहिती',
+  button_url: '#contact',
+  updated_at: '2026-09-06T12:00:00Z'
+};
+
