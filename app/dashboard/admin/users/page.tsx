@@ -15,10 +15,14 @@ import {
   Phone,
   ShieldAlert,
   Search,
-  Check
+  Check,
+  Clock,
+  Send,
+  Sparkles,
+  HelpCircle
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
-import { UserProfile, UserRole } from '@/lib/types';
+import { UserProfile, UserRole, PublishPermission } from '@/lib/types';
 
 export default function AdminUsersPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -32,6 +36,7 @@ export default function AdminUsersPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('reporter');
+  const [publishPermission, setPublishPermission] = useState<PublishPermission>('needs_approval');
   const [password, setPassword] = useState('');
 
   const loadData = () => {
@@ -43,6 +48,25 @@ export default function AdminUsersPage() {
     loadData();
   }, []);
 
+  const openCreateModal = () => {
+    setName('');
+    setEmail('');
+    setPhone('');
+    setRole('reporter');
+    setPublishPermission('needs_approval');
+    setPassword('');
+    setIsModalOpen(true);
+  };
+
+  const handleRoleSelect = (newRole: UserRole) => {
+    setRole(newRole);
+    if (newRole === 'reporter') {
+      setPublishPermission('needs_approval');
+    } else {
+      setPublishPermission('direct_publish');
+    }
+  };
+
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) return;
@@ -53,6 +77,7 @@ export default function AdminUsersPage() {
       email,
       phone,
       role,
+      publish_permission: publishPermission,
       is_active: true,
       created_at: new Date().toISOString()
     };
@@ -64,7 +89,8 @@ export default function AdminUsersPage() {
     setEmail('');
     setPhone('');
     setPassword('');
-    setSuccessToast(`नवीन युझर "${name}" यशस्वीरीत्या तयार करण्यात आला!`);
+    const permText = publishPermission === 'direct_publish' ? 'थेट प्रसिद्धी (Direct Publish)' : 'ॲडमिन मंजुरी आवश्यक (Send for Approval)';
+    setSuccessToast(`नवीन युझर "${name}" (${permText}) यशस्वीरीत्या तयार करण्यात आला!`);
     setTimeout(() => setSuccessToast(''), 4000);
   };
 
@@ -76,10 +102,30 @@ export default function AdminUsersPage() {
   const handleChangeRole = (userId: string, newRole: UserRole) => {
     const user = users.find(u => u.id === userId);
     if (user) {
-      localStore.saveUser({ ...user, role: newRole });
+      // If promoting to admin/editor and current was needs_approval, suggest direct
+      const autoPerm: PublishPermission = newRole === 'reporter' ? 'needs_approval' : 'direct_publish';
+      localStore.saveUser({
+        ...user,
+        role: newRole,
+        publish_permission: user.publish_permission || autoPerm
+      });
       loadData();
       setSuccessToast(`युझर ${user.full_name} चा रोल "${newRole}" मध्ये बदलण्यात आला.`);
       setTimeout(() => setSuccessToast(''), 3000);
+    }
+  };
+
+  const handleTogglePublishPermission = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      const current = user.publish_permission || (user.role === 'reporter' ? 'needs_approval' : 'direct_publish');
+      const nextPerm: PublishPermission = current === 'needs_approval' ? 'direct_publish' : 'needs_approval';
+      localStore.saveUser({ ...user, publish_permission: nextPerm });
+      loadData();
+      setSuccessToast(
+        `युझर "${user.full_name}" चे अधिकार "${nextPerm === 'direct_publish' ? 'थेट प्रसिद्धी (Direct Publish)' : 'ॲडमिन मंजुरी आवश्यक (Send for Approval)'}" असे सेट केले.`
+      );
+      setTimeout(() => setSuccessToast(''), 3500);
     }
   };
 
@@ -99,17 +145,17 @@ export default function AdminUsersPage() {
     admin: {
       label: 'मुख्य व्यवस्थापक (Admin)',
       badge: 'bg-red-500/15 text-red-300 border-red-500/30',
-      desc: 'सर्व अधिकार, युझर मॅनेजमेंट, सिस्टम सेटिंग्स'
+      desc: 'सर्व अधिकार, युझर मॅनेजमेंट, सिस्टम सेटिंग्स व थेट प्रकाशन'
     },
     editor: {
       label: 'उप-संपादक (Editor)',
       badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-      desc: 'मजकूर तपासणे, बदलणे व थेट प्रकाशित करणे'
+      desc: 'मजकूर तपासणे, बदलणे, मंजुरी देणे व थेट प्रकाशित करणे'
     },
     reporter: {
       label: 'डेटा ऑपरेटर (Reporter)',
       badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-      desc: 'बातम्या, विकासकामे, फोटो व व्हिडिओ सबमिट करणे'
+      desc: 'बातम्या व कामांची नोंद करणे (थेट किंवा मंजुरीसाठी पाठवणे)'
     }
   };
 
@@ -130,7 +176,7 @@ export default function AdminUsersPage() {
       {/* Toast Notification */}
       {successToast && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 animate-fade-in shadow-xl">
-          <Check className="w-5 h-5 text-emerald-400" />
+          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{successToast}</span>
         </div>
       )}
@@ -148,12 +194,12 @@ export default function AdminUsersPage() {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            न्यूज रूमसाठी ऑपरेटर, संपादक आणि ॲडमिनच्या खात्यांचे संपूर्ण नियंत्रण.
+            न्यूज रूमसाठी ऑपरेटर, संपादक व ॲडमिनचे अधिकार: <strong>थेट प्रसिद्धी (Direct Publish)</strong> किंवा <strong>ॲडमिन मंजुरी (Approval Required)</strong>.
           </p>
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20 shrink-0"
         >
           <UserPlus className="w-4 h-4" />
@@ -161,7 +207,7 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
-      {/* Role Explainer Cards */}
+      {/* Role & Permissions Explainer Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {(['admin', 'editor', 'reporter'] as UserRole[]).map((r) => {
           const count = users.filter(u => u.role === r).length;
@@ -201,14 +247,15 @@ export default function AdminUsersPage() {
                 <th className="py-3.5 px-4 font-semibold">युझर नाव व तपशील</th>
                 <th className="py-3.5 px-4 font-semibold">ईमेल व संपर्क</th>
                 <th className="py-3.5 px-4 font-semibold">रोल (Role)</th>
-                <th className="py-3.5 px-4 font-semibold">स्थिती (Status)</th>
+                <th className="py-3.5 px-4 font-semibold">प्रकाशन अधिकार (Publishing)</th>
+                <th className="py-3.5 px-4 font-semibold">खाते स्थिती</th>
                 <th className="py-3.5 px-4 font-semibold">शेवटचा लॉगिन</th>
-                <th className="py-3.5 px-4 font-semibold text-right">कृती (Actions)</th>
+                <th className="py-3.5 px-4 font-semibold text-right">कृती</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredUsers.map((u) => {
-                const meta = roleMeta[u.role];
+                const isApproval = u.publish_permission === 'needs_approval' || (!u.publish_permission && u.role === 'reporter');
                 return (
                   <tr key={u.id} className="hover:bg-slate-800/40 transition">
                     <td className="py-4 px-4 font-medium text-white flex items-center gap-3">
@@ -227,7 +274,6 @@ export default function AdminUsersPage() {
                     </td>
 
                     <td className="py-4 px-4">
-                      {/* Role Selector dropdown */}
                       <select
                         value={u.role}
                         onChange={(e) => handleChangeRole(u.id, e.target.value as UserRole)}
@@ -237,6 +283,31 @@ export default function AdminUsersPage() {
                         <option value="editor">✍️ उप-संपादक</option>
                         <option value="reporter">📝 डेटा ऑपरेटर</option>
                       </select>
+                    </td>
+
+                    {/* Publishing Permission Column: Direct Publish OR Send for Approval */}
+                    <td className="py-4 px-4">
+                      <button
+                        onClick={() => handleTogglePublishPermission(u.id)}
+                        title="अधिकार बदलण्यासाठी क्लिक करा"
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition duration-150 ${
+                          isApproval
+                            ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 hover:border-amber-500/50'
+                            : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 hover:border-emerald-500/50'
+                        }`}
+                      >
+                        {isApproval ? (
+                          <>
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>🟡 ॲडमिन मंजुरी (Approval)</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-emerald-400" />
+                            <span>🟢 थेट प्रसिद्धी (Direct)</span>
+                          </>
+                        )}
+                      </button>
                     </td>
 
                     <td className="py-4 px-4">
@@ -285,17 +356,17 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Add User Modal */}
+      {/* Add User Modal with Direct Publish vs Admin Approval choice */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative space-y-5 animate-scale-up">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl relative space-y-5 animate-scale-up">
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-amber-400" />
-                <span>नवीन युझर नोंदणी</span>
+                <span>नवीन युझर नोंदणी (Add New User)</span>
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                मतदारसंघ कार्यालयातील नवीन व्यक्तीला न्यूज रूमचा ॲक्सेस द्या.
+                नवीन ऑपरेटर किंवा संपादकाला थेट प्रसिद्धी किंवा मंजुरीचा पर्याय द्या.
               </p>
             </div>
 
@@ -324,28 +395,93 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">मोबाईल नंबर</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98000 00000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">मोबाईल नंबर</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+91 98000 00000"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">रोल निवडा *</label>
+                  <select
+                    value={role}
+                    onChange={(e) => handleRoleSelect(e.target.value as UserRole)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-amber-300 font-semibold focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="reporter">📝 डेटा ऑपरेटर (Reporter)</option>
+                    <option value="editor">✍️ उप-संपादक (Editor)</option>
+                    <option value="admin">👑 मुख्य व्यवस्थापक (Admin)</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">रोल निवडा *</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-amber-300 font-semibold focus:outline-none focus:border-amber-500"
-                >
-                  <option value="reporter">📝 डेटा ऑपरेटर (Reporter) - बातम्या व कामांची नोंद</option>
-                  <option value="editor">✍️ उप-संपादक (Editor) - मजकूर संपादन व प्रसिद्धी</option>
-                  <option value="admin">👑 मुख्य व्यवस्थापक (Admin) - सर्व अधिकार</option>
-                </select>
+              {/* CRITICAL: Direct Publish OR Admin Approval Selection */}
+              <div className="pt-1">
+                <label className="block text-slate-200 font-bold mb-2 flex items-center justify-between">
+                  <span>प्रकाशन अधिकार निवडा (Publishing Option) *</span>
+                  <span className="text-[11px] text-amber-400 font-normal">कामाचे स्वरूप ठरवा</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: Direct Publish */}
+                  <div
+                    onClick={() => setPublishPermission('direct_publish')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition select-none ${
+                      publishPermission === 'direct_publish'
+                        ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                        : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold text-xs flex items-center gap-1.5 text-emerald-400">
+                        <CheckCircle className="w-4 h-4 text-emerald-400" />
+                        <span>थेट प्रसिद्ध करा</span>
+                      </span>
+                      <input
+                        type="radio"
+                        name="publishPermission"
+                        checked={publishPermission === 'direct_publish'}
+                        onChange={() => setPublishPermission('direct_publish')}
+                        className="accent-emerald-500"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      हा युझर तयार केलेली बातमी थेट वेबसाइटवर (rajkumarbadole.in) प्रकाशित करू शकतो.
+                    </p>
+                  </div>
+
+                  {/* Option 2: Send for Admin Approval */}
+                  <div
+                    onClick={() => setPublishPermission('needs_approval')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition select-none ${
+                      publishPermission === 'needs_approval'
+                        ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold text-xs flex items-center gap-1.5 text-amber-400">
+                        <Clock className="w-4 h-4 text-amber-400" />
+                        <span>ॲडमिन मंजुरी आवश्यक</span>
+                      </span>
+                      <input
+                        type="radio"
+                        name="publishPermission"
+                        checked={publishPermission === 'needs_approval'}
+                        onChange={() => setPublishPermission('needs_approval')}
+                        className="accent-amber-500"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      तयार केलेला मजकूर आधी मुख्य ॲडमिनकडे मंजुरीसाठी जाईल. ॲडमिन मंजुरीनंतरच प्रकाशित होईल.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -359,7 +495,7 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

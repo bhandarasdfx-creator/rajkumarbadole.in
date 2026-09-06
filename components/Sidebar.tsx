@@ -195,9 +195,14 @@ export default function Sidebar({ currentUser, onUserSwitch }: SidebarProps) {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-200 truncate">{currentUser.full_name}</p>
-              <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded border mt-0.5 truncate ${roleLabelMap[currentUser.role]?.badge || ''}`}>
-                {roleLabelMap[currentUser.role]?.label.split(' ')[0]}
-              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded border truncate ${roleLabelMap[currentUser.role]?.badge || ''}`}>
+                  {roleLabelMap[currentUser.role]?.label.split(' ')[0]}
+                </span>
+                <span className="text-[10px] font-medium text-slate-400">
+                  {currentUser.publish_permission === 'needs_approval' ? '🟡 मंजुरी' : '🟢 थेट'}
+                </span>
+              </div>
             </div>
           </div>
 

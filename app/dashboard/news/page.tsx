@@ -17,10 +17,11 @@ import {
   Upload,
   Image as ImageIcon,
   X,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
-import { NewsPost, UserProfile } from '@/lib/types';
+import { NewsPost, UserProfile, PostStatus } from '@/lib/types';
 import { pushNewsToWordPress, triggerWordPressSync } from '@/lib/wordpress-sync';
 
 export default function NewsPage() {
@@ -32,6 +33,7 @@ export default function NewsPage() {
   const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
   const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -40,9 +42,11 @@ export default function NewsPage() {
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('विकासकामे');
   const [featuredImage, setFeaturedImage] = useState('/assets/rajkumar-badole-portrait.png');
-  const [status, setStatus] = useState<'published' | 'draft'>('published');
+  const [status, setStatus] = useState<PostStatus>('published');
 
-  const categories = ['सर्व', 'विकासकामे', 'शेतकरी', 'युवक', 'शिक्षण', 'आरोग्य', 'जनसंवाद'];
+  const userNeedsApproval =
+    currentUser?.publish_permission === 'needs_approval' ||
+    (currentUser?.role === 'reporter' && currentUser?.publish_permission !== 'direct_publish');
 
   const loadData = () => {
     setCurrentUser(localStore.getCurrentUser());
@@ -53,6 +57,19 @@ export default function NewsPage() {
     loadData();
   }, []);
 
+  const pendingPostsCount = posts.filter(p => p.status === 'pending').length;
+
+  const categories = [
+    'सर्व',
+    'विकासकामे',
+    'शेतकरी',
+    'युवक',
+    'शिक्षण',
+    'आरोग्य',
+    'जनसंवाद',
+    ...(pendingPostsCount > 0 ? [`मंजुरी प्रलंबित (${pendingPostsCount})`] : [])
+  ];
+
   const openCreateModal = () => {
     setEditingPost(null);
     setTitle('');
@@ -61,7 +78,7 @@ export default function NewsPage() {
     setContent('');
     setCategory('विकासकामे');
     setFeaturedImage('/assets/rajkumar-badole-portrait.png');
-    setStatus('published');
+    setStatus(userNeedsApproval ? 'pending' : 'published');
     setIsModalOpen(true);
   };
 
@@ -73,7 +90,7 @@ export default function NewsPage() {
     setContent(p.content);
     setCategory(p.category);
     setFeaturedImage(p.featured_image || '/assets/rajkumar-badole-portrait.png');
-    setStatus(p.status === 'published' ? 'published' : 'draft');
+    setStatus(p.status);
     setIsModalOpen(true);
   };
 
@@ -89,11 +106,12 @@ export default function NewsPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent, forcedStatus?: PostStatus) => {
     e.preventDefault();
     if (!title || !content) return;
 
     const postSlug = slug || title.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]+/g, '-').slice(0, 50);
+    const saveStatus: PostStatus = forcedStatus || (userNeedsApproval && status === 'published' ? 'pending' : status);
 
     const newPost: NewsPost = {
       id: editingPost ? editingPost.id : 'news-' + Date.now(),
@@ -103,11 +121,11 @@ export default function NewsPage() {
       content,
       featured_image: featuredImage,
       category,
-      status,
+      status: saveStatus,
       author_id: currentUser?.id || 'admin',
       author_name: currentUser?.full_name || 'राजकुमार बडोले कार्यालय',
       views_count: editingPost ? editingPost.views_count : 1,
-      published_at: editingPost ? editingPost.published_at : new Date().toISOString(),
+      published_at: saveStatus === 'published' ? (editingPost?.published_at || new Date().toISOString()) : '',
       created_at: editingPost ? editingPost.created_at : new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -115,8 +133,50 @@ export default function NewsPage() {
     localStore.saveNews(newPost);
     loadData();
     setIsModalOpen(false);
-    setToast(editingPost ? 'बातमी यशस्वीरीत्या अद्ययावत केली!' : 'नवीन बातमी तयार व प्रसिद्ध करण्यात आली!');
-    setTimeout(() => setToast(''), 3000);
+
+    if (saveStatus === 'pending') {
+      setToast('✓ बातमी मुख्य ॲडमिनच्या मंजुरीसाठी पाठवण्यात आली आहे!');
+    } else if (saveStatus === 'published') {
+      setToast(editingPost ? 'बातमी अद्ययावत केली व प्रकाशित झाली!' : 'नवीन बातमी तयार व थेट प्रकाशित करण्यात आली!');
+      // Auto-trigger sync to WordPress
+      pushNewsToWordPress(newPost);
+    } else {
+      setToast('बातमी मसुद्यात (Draft) सुरक्षित सेव्ह केली.');
+    }
+    setTimeout(() => setToast(''), 4000);
+  };
+
+  const handleApproveAndPublish = async (post: NewsPost) => {
+    const updated: NewsPost = {
+      ...post,
+      status: 'published',
+      published_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    localStore.saveNews(updated);
+    loadData();
+    setToast(`✓ बातमी "${post.title}" मंजूर झाली! WordPress वर सिंक करत आहे...`);
+    const wpRes = await pushNewsToWordPress(updated);
+    if (wpRes.success) {
+      setToast(`✓ बातमी मंजूर केली आणि rajkumarbadole.in वर थेट प्रकाशित झाली!`);
+    } else {
+      setToast(`✓ बातमी मंजूर केली (${wpRes.message})`);
+    }
+    setTimeout(() => setToast(''), 4500);
+  };
+
+  const handleRejectPost = (post: NewsPost) => {
+    if (confirm(`"${post.title}" ही बातमी नामंजूर करून मसुद्यात (Draft) हलवायची का?`)) {
+      const updated: NewsPost = {
+        ...post,
+        status: 'draft',
+        updated_at: new Date().toISOString()
+      };
+      localStore.saveNews(updated);
+      loadData();
+      setToast('बातमी नामंजूर करून मसुद्यात हलवली.');
+      setTimeout(() => setToast(''), 3000);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -142,14 +202,12 @@ export default function NewsPage() {
     }, 6000);
   };
 
-  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
-
   const handleSyncAllNews = async () => {
     setIsBulkSyncing(true);
     try {
       const res = await triggerWordPressSync({ latest_news: localStore.getNews() });
       if (res.success) {
-        setToast('✓ सर्व बातम्या rajkumarbadole.in सह सिंक झाल्या!');
+        setToast('✓ सर्व प्रकाशित बातम्या rajkumarbadole.in सह सिंक झाल्या!');
       } else {
         setToast(`त्रुटी: ${res.message}`);
       }
@@ -164,16 +222,19 @@ export default function NewsPage() {
   const filteredPosts = posts.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
                           p.excerpt.toLowerCase().includes(search.toLowerCase());
+    if (selectedCat.startsWith('मंजुरी प्रलंबित')) {
+      return matchesSearch && p.status === 'pending';
+    }
     const matchesCat = selectedCat === 'सर्व' || p.category === selectedCat;
     return matchesSearch && matchesCat;
   });
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
+      {/* Toast Notification */}
       {toast && (
-        <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in">
-          <Check className="w-5 h-5 text-emerald-400" />
+        <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center gap-2 shadow-xl animate-fade-in backdrop-blur-lg">
+          <Check className="w-5 h-5 text-emerald-400 shrink-0" />
           <span>{toast}</span>
         </div>
       )}
@@ -186,7 +247,7 @@ export default function NewsPage() {
             <span>बातम्या व प्रेस नोट (Newsroom)</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            rajkumarbadole.in च्या मुख्य पृष्ठावरील &apos;ताज्या घडामोडी&apos; विभागासाठी बातम्या प्रसिद्ध करा.
+            rajkumarbadole.in च्या मुख्य पृष्ठावरील &apos;ताज्या घडामोडी&apos; विभागासाठी बातम्या व्यवस्थापन.
           </p>
         </div>
 
@@ -209,10 +270,33 @@ export default function NewsPage() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>नवीन बातमी लिहा</span>
+            <span>{userNeedsApproval ? 'बातमी लिहा (मंजुरीसाठी)' : 'नवीन बातमी लिहा'}</span>
           </button>
         </div>
       </div>
+
+      {/* Admin Approval Notice Banner (When pending posts exist) */}
+      {pendingPostsCount > 0 && (currentUser?.role === 'admin' || currentUser?.role === 'editor') && (
+        <div className="p-4 rounded-3xl bg-amber-500/15 border border-amber-500/40 text-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl animate-fade-in">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold text-sm block text-white">
+                ⏳ {pendingPostsCount} बातमी/बातम्या ॲडमिन मंजुरीच्या प्रतीक्षेत आहेत!
+              </span>
+              <span className="text-xs text-amber-200/80">
+                ऑपरेटर्सने सादर केलेल्या बातम्या तपासून मंजूर करा किंवा मसुद्यात ठेवा.
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedCat(`मंजुरी प्रलंबित (${pendingPostsCount})`)}
+            className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition shadow-md shadow-amber-500/20 shrink-0"
+          >
+            प्रलंबित बातम्या तपासा ({pendingPostsCount})
+          </button>
+        </div>
+      )}
 
       {/* Category Tabs & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -223,7 +307,11 @@ export default function NewsPage() {
               onClick={() => setSelectedCat(c)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                 selectedCat === c
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  ? c.startsWith('मंजुरी')
+                    ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
+                    : 'bg-amber-500 text-slate-950 shadow-sm'
+                  : c.startsWith('मंजुरी')
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
@@ -233,7 +321,7 @@ export default function NewsPage() {
         </div>
 
         <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-2 sm:w-72">
-          <Search className="w-4 h-4 text-slate-500" />
+          <Search className="w-4 h-4 text-slate-500 shrink-0" />
           <input
             type="text"
             value={search}
@@ -246,153 +334,246 @@ export default function NewsPage() {
 
       {/* News List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPosts.map((post) => (
-          <div
-            key={post.id}
-            className="rounded-3xl bg-slate-900/90 border border-slate-800 p-5 flex flex-col justify-between hover:border-slate-700 transition group space-y-4 shadow-xl"
-          >
-            <div className="space-y-3">
-              {/* Image & Badges */}
-              <div className="relative h-44 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                <img
-                  src={post.featured_image || '/assets/rajkumar-badole-portrait.png'}
-                  alt=""
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                />
-                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/80 backdrop-blur-md border border-slate-700 text-amber-300">
-                    {post.category}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/80 backdrop-blur-md text-white">
-                    {post.status === 'published' ? 'प्रकाशित' : 'मसुदा'}
-                  </span>
+        {filteredPosts.map((post) => {
+          const isPending = post.status === 'pending';
+          const canApprove = currentUser?.role === 'admin' || currentUser?.role === 'editor';
+
+          return (
+            <div
+              key={post.id}
+              className={`rounded-3xl bg-slate-900/90 border p-5 flex flex-col justify-between hover:border-slate-700 transition group space-y-4 shadow-xl ${
+                isPending ? 'border-amber-500/50 bg-gradient-to-b from-amber-950/20 to-slate-900' : 'border-slate-800'
+              }`}
+            >
+              <div className="space-y-3">
+                {/* Image & Badges */}
+                <div className="relative h-44 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+                  <img
+                    src={post.featured_image || '/assets/rajkumar-badole-portrait.png'}
+                    alt=""
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                  />
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/80 backdrop-blur-md border border-slate-700 text-amber-300">
+                      {post.category}
+                    </span>
+
+                    {/* Status Badge */}
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold backdrop-blur-md ${
+                        post.status === 'published'
+                          ? 'bg-emerald-500/90 text-white'
+                          : post.status === 'pending'
+                          ? 'bg-amber-500 text-slate-950 font-extrabold animate-pulse'
+                          : 'bg-slate-700/80 text-slate-300'
+                      }`}
+                    >
+                      {post.status === 'published'
+                        ? '🟢 प्रकाशित'
+                        : post.status === 'pending'
+                        ? '⏳ मंजुरी प्रलंबित'
+                        : '⚪ मसुदा'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Title & Excerpt */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>
+                      📅 {post.published_at ? new Date(post.published_at).toLocaleDateString('mr-IN') : 'मंजुरीची प्रतीक्षा'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium truncate max-w-[130px]">
+                      लेखक: {post.author_name}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-white leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                    {post.excerpt}
+                  </p>
                 </div>
               </div>
 
-              {/* Title & Excerpt */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span>📅 {new Date(post.published_at).toLocaleDateString('mr-IN')}</span>
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-slate-400" /> {post.views_count} वाचले
-                  </span>
+              {/* Sync Feedback */}
+              {syncStatus[post.id] && (
+                <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 leading-tight">
+                  {syncStatus[post.id]}
                 </div>
-                <h3 className="text-base font-bold text-white leading-snug line-clamp-2">
-                  {post.title}
-                </h3>
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                  {post.excerpt}
-                </p>
+              )}
+
+              {/* Actions Bar */}
+              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+                {isPending && canApprove ? (
+                  /* Admin/Editor Approval Action Controls */
+                  <div className="flex items-center gap-2 w-full">
+                    <button
+                      onClick={() => handleApproveAndPublish(post)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-md shadow-emerald-600/20"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>मंजूर करा (Approve)</span>
+                    </button>
+                    <button
+                      onClick={() => handleRejectPost(post)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 transition border border-slate-700"
+                      title="नामंजूर करा (Draft मध्ये हलवा)"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => openEditModal(post)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 transition border border-slate-700"
+                      title="तपासा व संपादित करा"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : isPending ? (
+                  /* Reporter view of their pending post */
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>मुख्य ॲडमिनच्या मंजुरीच्या प्रतीक्षेत</span>
+                    </span>
+                    <button
+                      onClick={() => openEditModal(post)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                      title="संपादित करा"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  /* Standard Published / Draft Controls */
+                  <>
+                    <button
+                      onClick={() => handleSyncWordPress(post)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] font-semibold border border-slate-700"
+                      title="थेट rajkumarbadole.in वर सिंक करा"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-amber-400" />
+                      <span>WP सिंक</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(post)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                        title="संपादित करा"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(post.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                        title="काढून टाका"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+          );
+        })}
+      </div>
 
-            {/* Sync Feedback */}
-            {syncStatus[post.id] && (
-              <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 leading-tight">
-                {syncStatus[post.id]}
+      {/* Create / Edit News Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl relative space-y-5 my-8 max-h-[90vh] overflow-y-auto animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Newspaper className="w-5 h-5 text-amber-400" />
+                  <span>{editingPost ? 'बातमी संपादन करा' : 'नवीन बातमी तयार करा'}</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  rajkumarbadole.in साठी प्रेस नोट व बातमीची माहिती भरा.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* User Publishing Rights Notice */}
+            {userNeedsApproval ? (
+              <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2.5">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-white">ॲडमिन मंजुरी आवश्यक (Send for Admin Approval)</span>
+                  <span className="text-[11px] text-amber-200/80">
+                    आपल्या खात्यानुसार हा मजकूर मुख्य ॲडमिनकडे मंजुरीसाठी पाठवला जाईल. ॲडमिनने मंजूर केल्यावरच तो वेबसाइटवर लाइव्ह होईल.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>आपल्याला <strong>थेट प्रसिद्धी (Direct Publish)</strong> चे अधिकार आहेत. बातमी थेट लाइव्ह होईल.</span>
               </div>
             )}
 
-            {/* Actions Bar */}
-            <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
-              <button
-                onClick={() => handleSyncWordPress(post)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] font-semibold border border-slate-700"
-                title="थेट rajkumarbadole.in वर सिंक करा"
-              >
-                <Globe className="w-3.5 h-3.5 text-amber-400" />
-                <span>WP सिंक</span>
-              </button>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => openEditModal(post)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
-                  title="संपादित करा"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(post.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
-                  title="काढून टाका"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Compose/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl relative space-y-5 max-h-[90vh] overflow-y-auto">
-            <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Newspaper className="w-5 h-5 text-amber-400" />
-                <span>{editingPost ? 'बातमी संपादित करा' : 'नवीन बातमी / प्रेस नोट लिहा'}</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                rajkumarbadole.in साठी बातमी मजकूर व छायाचित्र प्रविष्ट करा.
-              </p>
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
+            <form onSubmit={(e) => handleSave(e)} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">बातमीचे शीर्षक *</label>
+                <label className="block text-slate-300 font-semibold mb-1">बातमीचे मुख्य शीर्षक *</label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="उदा. मतदारसंघातील विकासकामांसाठी २५ कोटींचा निधी मंजूर..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-bold"
+                  placeholder="उदा. अर्जुनी-मोरगाव मतदारसंघातील विकासकामांसाठी निधी मंजूर..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">विभाग निवडा (Category)</label>
+                  <label className="block text-slate-300 font-semibold mb-1">विभाग / वर्गवारी (Category) *</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-amber-300 font-semibold focus:outline-none focus:border-amber-500"
                   >
-                    <option value="विकासकामे">🏗️ विकासकामे</option>
-                    <option value="शेतकरी">🌾 शेतकरी व कृषी</option>
-                    <option value="युवक">🧑‍🎓 युवक व कौशल्य</option>
-                    <option value="शिक्षण">🎓 शिक्षण</option>
-                    <option value="आरोग्य">🏥 आरोग्य</option>
-                    <option value="जनसंवाद">🤝 जनसंवाद व दौरे</option>
+                    {categories.filter(c => c !== 'सर्व' && !c.startsWith('मंजुरी')).map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">स्थिती (Status)</label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-semibold focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="published">✅ थेट प्रकाशित (Published)</option>
-                    <option value="draft">📝 मसुदा (Draft)</option>
-                  </select>
+                  <label className="block text-slate-300 font-semibold mb-1">URL Slug (इंग्रजी संक्षिप्त नाव)</label>
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    placeholder="उदा. fund-sanction-arjuni-morgaon"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 font-mono text-xs"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
-                  <span>मुख्य छायाचित्र (Featured Image)</span>
-                  <span className="text-[11px] text-slate-400 font-normal">PC/मोबाईलमधून फोटो अपलोड करा किंवा निवडा</span>
+              {/* Photo Upload & Presets */}
+              <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-3">
+                <label className="block text-slate-300 font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-amber-400" />
+                    <span>मुख्य फोटो (Featured Image)</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">अपलोड करा किंवा निवडा</span>
                 </label>
 
-                {/* Upload & Preset Options */}
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer transition shadow-md shadow-amber-500/20">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer transition shadow-md shadow-amber-500/20">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>इमेज अपलोड करा (Upload Image)</span>
+                    <span>📁 डिव्हाइसवरून फोटो निवडा (Upload)</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -493,21 +674,60 @@ export default function NewsPage() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition"
-                >
-                  रद्द करा
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
-                >
-                  {editingPost ? 'बदल सेव्ह करा' : 'बातमी प्रकाशित करा'}
-                </button>
-              </div>
+              {/* Action Buttons based on User Permission */}
+              {userNeedsApproval ? (
+                /* Needs Approval: Submit for Approval OR Save Draft */
+                <div className="flex gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition"
+                  >
+                    रद्द करा
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSave(e, 'draft')}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition border border-slate-700"
+                  >
+                    💾 मसुदा (Draft) सेव्ह करा
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSave(e, 'pending')}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>📤 ॲडमिन मंजुरीसाठी पाठवा</span>
+                  </button>
+                </div>
+              ) : (
+                /* Direct Publish: Publish Directly OR Save Draft */
+                <div className="flex gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition"
+                  >
+                    रद्द करा
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSave(e, 'draft')}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition border border-slate-700"
+                  >
+                    💾 मसुदा सेव्ह करा
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSave(e, 'published')}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{editingPost ? 'बदल सेव्ह व प्रकाशित करा' : '⚡ थेट प्रकाशित करा (Live)'}</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>

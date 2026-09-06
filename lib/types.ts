@@ -1,10 +1,12 @@
 export type UserRole = 'admin' | 'editor' | 'reporter';
+export type PublishPermission = 'direct_publish' | 'needs_approval';
 
 export interface UserProfile {
   id: string;
   full_name: string;
   email: string;
   role: UserRole;
+  publish_permission?: PublishPermission; // 'direct_publish' किंवा 'needs_approval'
   phone?: string;
   avatar_url?: string;
   is_active: boolean;

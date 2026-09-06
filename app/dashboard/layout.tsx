@@ -25,7 +25,13 @@ export default function DashboardLayout({
 
   const handleRoleSwitch = (role: UserRole) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, role };
+    const users = localStore.getUsers();
+    const matched = users.find(u => u.role === role);
+    const updated: UserProfile = matched || {
+      ...currentUser,
+      role,
+      publish_permission: role === 'reporter' ? 'needs_approval' : 'direct_publish'
+    };
     localStore.setCurrentUser(updated);
     setCurrentUser(updated);
   };

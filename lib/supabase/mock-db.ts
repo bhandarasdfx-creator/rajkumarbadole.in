@@ -16,6 +16,7 @@ export const INITIAL_USERS: UserProfile[] = [
     full_name: 'मुख्य ॲडमिन (Bhandara SDFX)',
     email: 'bhandara.sdfx@gmail.com',
     role: 'admin',
+    publish_permission: 'direct_publish',
     phone: '+91 98765 43210',
     avatar_url: '/assets/rajkumar-badole-portrait.png',
     is_active: true,
@@ -27,6 +28,7 @@ export const INITIAL_USERS: UserProfile[] = [
     full_name: 'प्रमोद मेश्राम (संपादक / पीआरओ)',
     email: 'editor@rajkumarbadole.in',
     role: 'editor',
+    publish_permission: 'direct_publish',
     phone: '+91 94221 88990',
     is_active: true,
     created_at: '2026-02-01T11:30:00Z',
@@ -37,6 +39,7 @@ export const INITIAL_USERS: UserProfile[] = [
     full_name: 'अतुल वासनिक (मतदारसंघ डेटा ऑपरेटर)',
     email: 'operator@rajkumarbadole.in',
     role: 'reporter',
+    publish_permission: 'needs_approval',
     phone: '+91 91580 12345',
     is_active: true,
     created_at: '2026-03-10T09:15:00Z',
@@ -92,6 +95,22 @@ export const INITIAL_NEWS: NewsPost[] = [
     published_at: '2026-08-28T09:00:00Z',
     created_at: '2026-08-28T08:30:00Z',
     updated_at: '2026-08-28T09:00:00Z'
+  },
+  {
+    id: 'news-pending-1',
+    title: 'तालुका क्रीडा संकुलाच्या कामाची पाहणी व प्रगतीचा आढावा',
+    slug: 'sports-complex-review-pending',
+    excerpt: 'क्रीडा संकुलाच्या नवीन धावपट्टी व इनडोअर हॉलच्या कामांची अंतिम टप्प्यातील पाहणी संपन्न.',
+    content: 'अर्जुनी-मोरगाव येथील नियोजित तालुका क्रीडा संकुलाच्या कामाचा प्रत्यक्ष पाहणी दौरा आयोजित करण्यात आला होता. ग्रामीण भागातील तरुण खेळाडूंना आंतरराष्ट्रीय दर्जाच्या क्रीडा सुविधा मिळाव्यात यासाठी सुरु असलेल्या कामांचा आढावा घेण्यात आला.',
+    featured_image: '/assets/rajkumar-badole-banner.png',
+    category: 'युवक',
+    status: 'pending',
+    author_id: 'user-reporter-1',
+    author_name: 'अतुल वासनिक (मतदारसंघ डेटा ऑपरेटर)',
+    views_count: 0,
+    published_at: '',
+    created_at: '2026-09-06T07:30:00Z',
+    updated_at: '2026-09-06T07:30:00Z'
   }
 ];
 
