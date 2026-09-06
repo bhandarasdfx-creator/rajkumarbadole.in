@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Rajkumar Badole Newsroom Data Feeder & Sync
- * Plugin URI: https://rajkumarbadole-newsroom.vercel.app
- * Description: rajkumarbadole.in ला 'राजकुमार बडोले डिजिटल न्यूज रूम' (Vercel) शी थेट जोडणारा अधिकृत टू-वे सिंक प्लगइन. (Supports Auto-Import, Webhook & Shortcodes)
- * Version: 2.0.0
+ * Plugin URI: https://newsroom.rajkumarbadole.in
+ * Description: rajkumarbadole.in ला 'राजकुमार बडोले डिजिटल न्यूज रूम' शी थेट जोडणारा अधिकृत टू-वे सिंक प्लगइन. (Supports Auto-Import, Webhook & Shortcodes)
+ * Version: 2.1.0
  * Author: Bhandara SDFX
  * Author URI: mailto:bhandara.sdfx@gmail.com
  * License: GPL-2.0+
@@ -15,7 +15,7 @@ class RB_Newsroom_Sync {
     private $api_base_url;
 
     public function __construct() {
-        $this->api_base_url = get_option('rb_newsroom_api_url', 'https://rajkumarbadole-newsroom.vercel.app/api');
+        $this->api_base_url = get_option('rb_newsroom_api_url', 'https://newsroom.rajkumarbadole.in/api');
         
         // Admin menu and actions
         add_action('admin_menu', [$this, 'add_admin_menu']);
@@ -32,6 +32,9 @@ class RB_Newsroom_Sync {
         add_shortcode('rb_events', [$this, 'render_events']);
         add_shortcode('rb_videos', [$this, 'render_videos']);
         add_shortcode('rb_gallery', [$this, 'render_gallery']);
+
+        // Auto-flush rewrite rules so CPT single pages (like gallery) work immediately
+        add_action('init', [$this, 'ensure_cpt_and_rewrites'], 99);
     }
 
     public function add_admin_menu() {
@@ -56,6 +59,13 @@ class RB_Newsroom_Sync {
             'callback'            => [$this, 'handle_webhook_sync'],
             'permission_callback' => '__return_true'
         ]);
+    }
+
+    public function ensure_cpt_and_rewrites() {
+        if (!get_option('rb_permalinks_flushed_v2')) {
+            flush_rewrite_rules(false);
+            update_option('rb_permalinks_flushed_v2', 1);
+        }
     }
 
     /**
@@ -94,6 +104,8 @@ class RB_Newsroom_Sync {
         foreach ($result as $k => $v) {
             if (is_numeric($v)) $total += intval($v);
         }
+
+        flush_rewrite_rules(false);
 
         return rest_ensure_response([
             'success'        => true,
@@ -156,6 +168,7 @@ class RB_Newsroom_Sync {
         }
 
         if ($post_id && !is_wp_error($post_id)) {
+            flush_rewrite_rules(false);
             update_option('rb_last_synced_at', current_time('mysql'));
             return [
                 'success'  => true,
@@ -523,7 +536,9 @@ class RB_Newsroom_Sync {
 
         // If relative URL like /assets/rajkumar-badole-...
         if (strpos($image_data_or_url, '/assets/') === 0) {
-            $image_data_or_url = 'https://rajkumarbadole-newsroom.vercel.app' . $image_data_or_url;
+            $base = rtrim(str_replace('/api', '', $this->api_base_url), '/');
+            if (empty($base)) $base = 'https://newsroom.rajkumarbadole.in';
+            $image_data_or_url = $base . $image_data_or_url;
         }
 
         // Case 2: HTTP / HTTPS URL
@@ -603,7 +618,7 @@ class RB_Newsroom_Sync {
                             <th scope="row" style="width:180px;">Newsroom API URL</th>
                             <td>
                                 <input type="url" name="rb_newsroom_api_url" value="<?php echo esc_attr($this->api_base_url); ?>" class="regular-text" style="width:100%;max-width:480px;font-family:monospace;" />
-                                <p class="description">डीफॉल्ट: <code>https://rajkumarbadole-newsroom.vercel.app/api</code></p>
+                                <p class="description">डीफॉल्ट: <code>https://newsroom.rajkumarbadole.in/api</code> (किंवा <code>https://rajkumarbadole-newsroom.vercel.app/api</code>)</p>
                             </td>
                         </tr>
                     </table>

@@ -34,7 +34,7 @@ export const saveWordPressConfig = (config: WordPressConfig): void => {
 };
 
 /**
- * Trigger live synchronization from https://rajkumarbadole-newsroom.vercel.app/ directly to rajkumarbadole.in
+ * Trigger live synchronization from newsroom.rajkumarbadole.in directly to rajkumarbadole.in
  */
 export async function triggerWordPressSync(payload?: any): Promise<{
   success: boolean;

@@ -163,7 +163,7 @@ export default function DashboardOverviewPage() {
               <span className="text-xs text-slate-400 font-mono">rajkumarbadole.in</span>
             </div>
             <h3 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-              <span>https://rajkumarbadole-newsroom.vercel.app/ वरून थेट WordPress अपडेट करा</span>
+              <span>newsroom.rajkumarbadole.in वरून थेट WordPress अपडेट करा</span>
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
               येथून तयार केलेल्या सर्व ताज्या बातम्या, विकासकामे, उपक्रम आणि व्हिडिओ थेट मुख्य वेबसाइटवर (rajkumarbadole.in) एका क्लिकवर सिंक होतात. वेगळ्या वर्डप्रेस ॲडमिनमध्ये जाण्याची आवश्यकता नाही.

@@ -116,7 +116,7 @@ export default function SettingsPage() {
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
-          हे सिंक्रोनायझेशन थेट <strong>https://rajkumarbadole-newsroom.vercel.app/</strong> येथूनच चालते. आपल्याला WordPress ॲडमिन पॅनेल उघडण्याची कोणतीही आवश्यकता नाही. आपण खालील बटण दाबून किंवा हेडरमधील <strong>&quot;⚡ WordPress सिंक&quot;</strong> बटण दाबून संपूर्ण डेटा त्वरित पाठवू शकता.
+          हे सिंक्रोनायझेशन थेट <strong>https://newsroom.rajkumarbadole.in/</strong> (किंवा <strong>https://rajkumarbadole-newsroom.vercel.app/</strong>) येथूनच चालते. आपल्याला WordPress ॲडमिन पॅनेल उघडण्याची कोणतीही आवश्यकता नाही. आपण खालील बटण दाबून किंवा हेडरमधील <strong>&quot;⚡ WordPress सिंक&quot;</strong> बटण दाबून संपूर्ण डेटा त्वरित पाठवू शकता.
         </p>
 
         <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
@@ -126,7 +126,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-900 pt-2">
             <span className="text-slate-400">Newsroom Public JSON Feed:</span>
-            <span className="font-mono text-amber-400 select-all">https://rajkumarbadole-newsroom.vercel.app/api/feed</span>
+            <span className="font-mono text-amber-400 select-all">https://newsroom.rajkumarbadole.in/api/feed</span>
           </div>
         </div>
 
