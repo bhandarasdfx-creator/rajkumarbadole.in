@@ -538,6 +538,7 @@ class RB_Newsroom_Sync {
         if ($post_id && !is_wp_error($post_id)) {
             if (!empty($item['id'])) update_post_meta($post_id, '_rb_newsroom_id', $item['id']);
             if ($youtube_url) update_post_meta($post_id, '_rb_youtube_url', esc_url($youtube_url));
+            if (!empty($item['category'])) update_post_meta($post_id, '_rb_video_category', sanitize_text_field($item['category']));
             if ($youtube_id) {
                 update_post_meta($post_id, '_rb_youtube_id', sanitize_text_field($youtube_id));
                 // Set YouTube thumbnail as post thumbnail
@@ -629,15 +630,25 @@ class RB_Newsroom_Sync {
         return 0;
     }
 
-    /**
-     * Attach image (Base64 data URI, relative asset URL, or external URL) to WordPress post as thumbnail
-     */
     private function attach_image_to_post($post_id, $image_data_or_url, $title = '') {
         if (empty($image_data_or_url)) return false;
 
         require_once(ABSPATH . 'wp-admin/includes/image.php');
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+        $img_hash = md5($image_data_or_url);
+        $prev_hash = get_post_meta($post_id, '_rb_attached_image_hash', true);
+        $existing_thumb_id = get_post_thumbnail_id($post_id);
+
+        if ($existing_thumb_id && $prev_hash === $img_hash) {
+            return wp_get_attachment_url($existing_thumb_id);
+        }
+
+        // If thumbnail existed but image changed during edit, clean up old attachment
+        if ($existing_thumb_id && $prev_hash !== $img_hash) {
+            wp_delete_attachment($existing_thumb_id, true);
+        }
 
         // Case 1: Base64 Data URL (e.g. data:image/png;base64,... or data:image/jpeg;base64,...)
         if (preg_match('/^data:image\/(\w+);base64,/', $image_data_or_url, $type)) {
@@ -666,6 +677,7 @@ class RB_Newsroom_Sync {
                 $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
                 wp_update_attachment_metadata($attach_id, $attach_data);
                 set_post_thumbnail($post_id, $attach_id);
+                update_post_meta($post_id, '_rb_attached_image_hash', $img_hash);
                 return $file_url;
             }
             return false;
@@ -680,12 +692,6 @@ class RB_Newsroom_Sync {
 
         // Case 2: HTTP / HTTPS URL
         if (filter_var($image_data_or_url, FILTER_VALIDATE_URL)) {
-            // Check if already attached
-            $existing_thumb_id = get_post_thumbnail_id($post_id);
-            if ($existing_thumb_id) {
-                return wp_get_attachment_url($existing_thumb_id);
-            }
-
             // Download file to temp
             $tmp = download_url($image_data_or_url, 15);
             if (is_wp_error($tmp)) return false;
@@ -698,6 +704,7 @@ class RB_Newsroom_Sync {
             $attach_id = media_handle_sideload($file_array, $post_id, $title);
             if (!is_wp_error($attach_id)) {
                 set_post_thumbnail($post_id, $attach_id);
+                update_post_meta($post_id, '_rb_attached_image_hash', $img_hash);
                 return wp_get_attachment_url($attach_id);
             }
         }

@@ -11,6 +11,7 @@ export default function VideosPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
   const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
@@ -34,30 +35,67 @@ export default function VideosPage() {
     return (match && match[2].length === 11) ? match[2] : 'dQw4w9WgXcQ';
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingVideo(null);
+    setTitle('');
+    setYoutubeUrl('');
+    setCategory('विधानसभा भाषण');
+    setDescription('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (vid: VideoItem) => {
+    setEditingVideo(vid);
+    setTitle(vid.title);
+    setYoutubeUrl(vid.youtube_url);
+    setCategory(vid.category || 'विधानसभा भाषण');
+    setDescription(vid.description || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !youtubeUrl) return;
 
     const ytId = extractYoutubeId(youtubeUrl);
-    const newVideo: VideoItem = {
-      id: 'vid-' + Date.now(),
+    const videoData: VideoItem = {
+      id: editingVideo ? editingVideo.id : 'vid-' + Date.now(),
       title,
       youtube_url: youtubeUrl,
       youtube_id: ytId,
       category,
       description,
-      is_featured: false,
-      created_at: new Date().toISOString()
+      is_featured: editingVideo ? editingVideo.is_featured : false,
+      created_at: editingVideo ? editingVideo.created_at : new Date().toISOString()
     };
 
-    localStore.saveVideo(newVideo);
+    localStore.saveVideo(videoData);
     loadData();
     setIsModalOpen(false);
+    const wasEditing = !!editingVideo;
+    setEditingVideo(null);
     setTitle('');
     setYoutubeUrl('');
     setDescription('');
-    setToast('नवीन व्हिडिओ यशस्वीरीत्या जोडला!');
+    setToast(wasEditing ? 'व्हिडिओ माहिती अद्ययावत केली!' : 'नवीन व्हिडिओ यशस्वीरीत्या जोडला!');
     setTimeout(() => setToast(''), 3000);
+
+    // If edited, automatically sync to WordPress in background so changes reflect live immediately!
+    if (wasEditing) {
+      setSyncStatus(prev => ({ ...prev, [videoData.id]: 'बदल WordPress वर सिंक करत आहे...' }));
+      const res = await pushVideoToWordPress(videoData);
+      setSyncStatus(prev => ({
+        ...prev,
+        [videoData.id]: res.success ? `✓ WordPress वर अद्ययावत झाले!` : `✗ ${res.message}`
+      }));
+      setTimeout(() => {
+        setSyncStatus(prev => {
+          const copy = { ...prev };
+          delete copy[videoData.id];
+          return copy;
+        });
+      }, 5000);
+    }
   };
 
   const handleDelete = async (video: VideoItem) => {
@@ -109,7 +147,7 @@ export default function VideosPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20 shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
@@ -164,13 +202,22 @@ export default function VideosPage() {
                   <Globe className="w-3.5 h-3.5 text-blue-400" />
                   <span>WP सिंक</span>
                 </button>
-                <button
-                  onClick={() => handleDelete(vid)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
-                  title="काढून टाका"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditModal(vid)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                    title="संपादित करा (Edit)"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(vid)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                    title="काढून टाका"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Sync Feedback */}
@@ -189,7 +236,7 @@ export default function VideosPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-5">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Video className="w-5 h-5 text-amber-400" />
-              <span>नवीन YouTube व्हिडिओ जोडा</span>
+              <span>{editingVideo ? 'व्हिडिओ संपादित करा (Edit Video)' : 'नवीन YouTube व्हिडिओ जोडा'}</span>
             </h3>
 
             <form onSubmit={handleSave} className="space-y-4 text-xs">
@@ -254,7 +301,7 @@ export default function VideosPage() {
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
                 >
-                  व्हिडिओ सेव्ह करा
+                  {editingVideo ? 'बदल सेव्ह करा (Save Changes)' : 'व्हिडिओ सेव्ह करा'}
                 </button>
               </div>
             </form>

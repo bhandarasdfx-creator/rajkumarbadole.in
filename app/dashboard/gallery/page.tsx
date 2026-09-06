@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag, Globe, Upload } from 'lucide-react';
+import { Image as ImageIcon, PlusCircle, Trash2, Check, Tag, Globe, Upload, Edit } from 'lucide-react';
 import { localStore } from '@/lib/supabase/client';
 import { GalleryItem, UserProfile } from '@/lib/types';
 import { pushGalleryToWordPress, deleteItemFromWordPress } from '@/lib/wordpress-sync';
@@ -11,6 +11,7 @@ export default function GalleryPage() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [syncStatus, setSyncStatus] = useState<Record<string, string>>({});
   const [toast, setToast] = useState('');
 
@@ -40,26 +41,63 @@ export default function GalleryPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingItem(null);
+    setTitle('');
+    setImageUrl('/assets/rajkumar-badole-portrait.png');
+    setAlbumName('जनसंवाद दौरा २०२६');
+    setCaption('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (item: GalleryItem) => {
+    setEditingItem(item);
+    setTitle(item.title);
+    setImageUrl(item.image_url);
+    setAlbumName(item.album_name || 'जनसंवाद दौरा २०२६');
+    setCaption(item.caption || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !imageUrl) return;
 
     const newItem: GalleryItem = {
-      id: 'gal-' + Date.now(),
+      id: editingItem ? editingItem.id : 'gal-' + Date.now(),
       title,
       image_url: imageUrl,
       album_name: albumName,
       caption,
-      created_at: new Date().toISOString()
+      created_at: editingItem ? editingItem.created_at : new Date().toISOString()
     };
 
     localStore.saveGallery(newItem);
     loadData();
     setIsModalOpen(false);
+    const wasEditing = !!editingItem;
+    setEditingItem(null);
     setTitle('');
     setCaption('');
-    setToast('फोटो गॅलरीत यशस्वीरीत्या जोडला!');
+    setToast(wasEditing ? 'फोटो माहिती अद्ययावत केली!' : 'फोटो गॅलरीत यशस्वीरीत्या जोडला!');
     setTimeout(() => setToast(''), 3000);
+
+    // If edited, automatically sync to WordPress in background so changes reflect live immediately!
+    if (wasEditing) {
+      setSyncStatus(prev => ({ ...prev, [newItem.id]: 'बदल WordPress वर सिंक करत आहे...' }));
+      const res = await pushGalleryToWordPress(newItem);
+      setSyncStatus(prev => ({
+        ...prev,
+        [newItem.id]: res.success ? `✓ WordPress वर अद्ययावत झाले!` : `✗ ${res.message}`
+      }));
+      setTimeout(() => {
+        setSyncStatus(prev => {
+          const copy = { ...prev };
+          delete copy[newItem.id];
+          return copy;
+        });
+      }, 5000);
+    }
   };
 
   const handleDelete = async (item: GalleryItem) => {
@@ -111,7 +149,7 @@ export default function GalleryPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-amber-500/20 shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
@@ -151,13 +189,22 @@ export default function GalleryPage() {
                   <Globe className="w-3.5 h-3.5 text-blue-400" />
                   <span>WP सिंक</span>
                 </button>
-                <button
-                  onClick={() => handleDelete(item)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
-                  title="काढून टाका"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => openEditModal(item)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition"
+                    title="संपादित करा (Edit)"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                    title="काढून टाका"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Sync Feedback */}
@@ -176,7 +223,7 @@ export default function GalleryPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-5">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <ImageIcon className="w-5 h-5 text-amber-400" />
-              <span>नवीन फोटो जोडा</span>
+              <span>{editingItem ? 'फोटो माहिती संपादित करा (Edit Photo)' : 'नवीन फोटो जोडा'}</span>
             </h3>
 
             <form onSubmit={handleSave} className="space-y-4 text-xs">
@@ -293,7 +340,7 @@ export default function GalleryPage() {
                   type="submit"
                   className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
                 >
-                  फोटो सेव्ह करा
+                  {editingItem ? 'बदल सेव्ह करा (Save Changes)' : 'फोटो सेव्ह करा'}
                 </button>
               </div>
             </form>
